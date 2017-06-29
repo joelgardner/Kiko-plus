@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "(1) A modern JS app: create-react-app"
-description: "Part 1 of a (long) series of posts detailing how I build a modern Javascript webapp.  In this post, we'll detail the technologies we're using and get through the project setup."
+title: "A modern JS app: technology overview and client setup"
+description: "Part 1: In this post, we'll detail the technologies we're using and set up our client.  At the end, we'll have a React build pipeline up and running, and we'll be ready to work with JSX, instead of boilerplate."
 date: 2017-06-16
 tags: [javascript, react, redux, node, graphql, mongo]
 comments: true
@@ -13,9 +13,9 @@ share: true
 ### Part 1: Basic technologies overview
 
 #### Backend
-As stated in the title of this post, we'll use [Node.js](https://nodejs.org) to run our backend code.  For our data store, we'll pick [Mongo](https://www.mongodb.com/).  And we'll serve our API via [GraphQL](http://graphql.org/) to interact with our frontend.  As an alternative to the traditional REST API, it relies not on URLs for accessing resources but customizable queries which allow us to extract only the data we want from our backend.
+As stated in the title of this post, we'll use [Node.js](https://nodejs.org) to run our backend code.  For our data-store, we'll pick [Mongo](https://www.mongodb.com/).  Our frontend will consume our API via [GraphQL](http://graphql.org/): as an alternative to the traditional REST API, it relies not on URLs for accessing resources but customizable queries which allow us to extract only the data we want from our backend.
 
->*While we could have chosen a relational data-store like [Postgres](https://www.postgresql.org/) for our database, we'll stick with Mongo as it's very javascript friendly and has virtually nil set-up time.*
+>*While we could have chosen a relational data-store like [Postgres](https://www.postgresql.org/) for our database, we'll stick with Mongo as it's very javascript friendly and has virtually nil set-up time and is extremely flexible.*
 
 #### Frontend
 Let's use [React](https://facebook.github.io/react/) and [Redux](http://redux.js.org/), as the pair provides a simple way to reason about the data-flow and state inside our app.  

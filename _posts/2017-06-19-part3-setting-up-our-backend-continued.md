@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "(3) A modern JS app: backend architecture"
-description: "Part 3 of a (long) series of posts detailing how I build a modern Javascript webapp.  In this post, we'll continue setting up our backend."
+title: "A modern JS app: backend architecture"
+description: "Part 3: In this post, we'll continue setting up our backend by bringing GraphQL and Mongo into the mix. At the end, our client will be speaking GraphQL and our backend will perform C.R.U.D. operations at a 5th grade level."
 date: 2017-06-16
 tags: [javascript, react, redux, node, graphql, mongo]
 comments: true
