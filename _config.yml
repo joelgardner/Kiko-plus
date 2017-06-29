@@ -32,7 +32,7 @@ google-analytics:
 
 # Disqus
 disqus:
-  id:               "williamjoelgardner"
+  id:               "joelgardner-github-io"
 
 # URL
 url:                "https://joelgardner.github.io" # the base hostname & protocol for your site
