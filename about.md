@@ -3,6 +3,7 @@ title: About me
 permalink: /about/
 ---
 
+![img](https://avatars1.githubusercontent.com/u/12779735?v=3&s=460)
 ### About me
 
 My name is Joel.  I'm a freelance javascript developer who loves building stuff with React, Redux, Node, GraphQL, and Postgres.
