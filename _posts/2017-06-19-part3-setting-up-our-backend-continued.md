@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "A modern React / Node.js application"
+title: "(3) A modern React / Node.js application: backend architecture"
 description: "Part 3 of a (long) series of posts detailing how I build a modern Javascript webapp.  In this post, we'll continue setting up our backend."
 date: 2017-06-16
 tags: [javascript, react, redux, node, graphql, mongo]
