@@ -9,7 +9,7 @@ author:
   # facebook:         your-id
   # youtubeUser:      your-id
   # youtubeChannel:   your-id
-  # twitter:          your-id
+  twitter:          wjoelg
   github:           joelgardner
   # stackoverflow:    your-id
   # quora:            your-id
@@ -28,7 +28,7 @@ copyright:
 
 # Google-analytics
 google-analytics:
-  id:               ""
+  id:               "UA-101860686-1"
 
 # Disqus
 disqus:
