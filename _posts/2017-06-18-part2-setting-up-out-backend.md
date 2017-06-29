@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "(2) A modern React / Node.js application: E.T. phones the backend"
+title: "(2) A modern JS app: E.T. phones the backend"
 description: "Part 2 of a (long) series of posts detailing how I build a modern Javascript webapp.  In this post, we'll set up our backend."
 date: 2017-06-16
 tags: [javascript, react, redux, node, graphql, mongo]

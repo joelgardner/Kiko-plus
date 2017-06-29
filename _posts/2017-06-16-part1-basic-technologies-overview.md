@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "(1) A modern React / Node.js application: create-react-app"
+title: "(1) A modern JS app: create-react-app"
 description: "Part 1 of a (long) series of posts detailing how I build a modern Javascript webapp.  In this post, we'll detail the technologies we're using and get through the project setup."
 date: 2017-06-16
 tags: [javascript, react, redux, node, graphql, mongo]
