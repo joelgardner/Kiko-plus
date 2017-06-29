@@ -20,7 +20,7 @@ As stated in the title of this post, we'll use [Node.js](https://nodejs.org) to 
 #### Frontend
 Let's use [React](https://facebook.github.io/react/) and [Redux](http://redux.js.org/), as the pair provides a simple way to reason about the data-flow and state inside our app.  
 
->*[Vue.js](https://vuejs.org/) is another library that's enjoying a ton of use, and some people swear by it over React.  But as I said earlier, I'm a loyal soldier (and I'm not a big fan of the Angular-like html attributes Vue employs, but to each their own!).*
+>*[Vue.js](https://vuejs.org/) is another library that's enjoying a ton of use, and some people swear by it over React.  But I'm a loyal soldier (and I'm not a big fan of the Angular-like html-attribute-macros Vue employs, but to each their own!).*
 
 We'll use the amazing [create-react-app](https://github.com/facebookincubator/create-react-app) package to supercharge our setup time.  It provides tons of boilerplate we'd otherwise have to write ourselves to get stuff like [Babel](https://babeljs.io/) and [Webpack](https://webpack.js.org/) working.  Run the following:
 
