@@ -3,7 +3,7 @@ layout: post
 title: "A modern JS app (II): E.T. phones the backend"
 description: "Part 2: In this post, we'll set up our Node backend to be able to handle requests.  At the end, our frontend will be able to send simple a request to the backend and display the response on screen."
 date: 2017-06-18
-tags: [javascript, react, redux, node, graphql, mongo]
+tags: [javascript, react, api, express, node, build]
 comments: true
 share: true
 ---

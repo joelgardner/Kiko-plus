@@ -3,7 +3,7 @@ layout: post
 title: "A modern JS app (I): technology overview and client setup"
 description: "Part 1: In this post, we'll detail the technologies we're using and set up our client.  At the end, we'll have a React build pipeline up and running, and we'll be ready to work with JSX, instead of boilerplate."
 date: 2017-06-16
-tags: [javascript, react, redux, node, graphql, mongo]
+tags: [javascript, create-react-app, react, babel, jest, flow, eslint]
 comments: true
 share: true
 ---
