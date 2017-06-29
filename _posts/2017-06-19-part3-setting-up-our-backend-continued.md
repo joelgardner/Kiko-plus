@@ -1,6 +1,16 @@
-## Build a new React / Node.js application
+---
+layout: post
+title: "A modern React / Node.js application"
+description: "Part 3 of a (long) series of posts detailing how I build a modern Javascript webapp.  In this post, we'll continue setting up our backend."
+date: 2017-06-16
+tags: [javascript, react, redux, node, graphql, mongo]
+comments: true
+share: true
+---
 
-### Part 3: Setting up our Backend... continued
+## A modern React / Node.js application
+
+### Part 2: Setting up our Backend... continued
 
 > NOTE: You'll need to be running Node version >= 8.0 for the following.  So if you don't have that one installed, do so.  Check out the [nvm](https://github.com/creationix/nvm) package if you'd like some assistance.
 

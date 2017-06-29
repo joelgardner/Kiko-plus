@@ -1,4 +1,14 @@
-## Build a new React / Node.js application
+---
+layout: post
+title: "A modern React / Node.js application"
+description: "Part 2 of a (long) series of posts detailing how I build a modern Javascript webapp.  In this post, we'll set up our backend."
+date: 2017-06-16
+tags: [javascript, react, redux, node, graphql, mongo]
+comments: true
+share: true
+---
+
+## A modern React / Node.js application
 
 ### Part 2: Setting up our Backend
 
