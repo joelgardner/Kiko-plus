@@ -10,7 +10,7 @@ share: true
 
 ## A modern React / Node.js application
 
-### Part 2: Setting up our Backend... continued
+### Part 3: Setting up our Backend... continued
 
 > NOTE: You'll need to be running Node version >= 8.0 for the following.  So if you don't have that one installed, do so.  Check out the [nvm](https://github.com/creationix/nvm) package if you'd like some assistance.
 
@@ -85,25 +85,6 @@ This is a very basic schema that will allow us to build our B&B Booking app.  It
 Now let's install the GraphQL library:
 
 `npm i --save graphql`
-
-#### Microservices
-
-Before we get to the nitty-gritty, let's take a moment to think about our server architecture.  We'll break our application into microservices.  We will use the [Seneca.js](http://senecajs.org/) library to facilitate our services.  Let's think about the services we need:
-- `gateway` - we definitely need a service that receives client requests and sends back a response
-- `booking` - we need a service to perform our booking logic
-- `inventory` - a service to maintain our room inventory
-- `storage` - a service to interact with our Postgres database to perform C.R.U.D. operations
-- `image` - we'll use this service to interact with Amazon S3 to store the images associated with each room.  
-
-> You could argue `image` should be part of the `inventory` service.  But what if we want to implement a feature allowing guests to post pictures they've taken on their trips?  This way, we'll have a service that basically does what we want already, without having to extract such logic from `inventory`.
-
-Don't let the term *microservice* scare you.  It's a fancy way to describe a class or function (or set of functions).  A microservice should be independently deployable.  One microservice handles one aspect of our business logic.  The opposite of a microservice architecture is a monolith, in which all code is a huge, single project wherein a single part cannot be broken out independently.  
-
-As with everything in software, there are tradeoffs.  In a monolith, a service invoking another service is probably just a nice, easy function call.  In a microservices architecture, the same two services don't necessarily live inside the same process.  Thus, invocation must be done over some other transport method: http, ipc, tcp, etc(p).
-
-This is where Seneca comes in.  It takes care of the inter-service communication, and all we need to think about is the arguments and result each service sends and receives.
-
-`npm i --save seneca`
 
 #### Creating Users
 
@@ -495,19 +476,19 @@ export async function createUser(user, context) {
 }
 ```
 
-> Note that in the `catch` of `createUser` and `getUser`, we're logging the exception and simply re-throwing.  This will cause the API to return the exception message down the wire to the client.  This is at best, user-unfriendly, and at worst, a secuirty issue.  Later, we'll add logic to return safe and user-friendly errors back to the client.
+> Note that in the `catch` of `createUser` and `getUser`, we're logging the exception and simply re-throwing.  This will cause the API to return the exception message down the wire to the client.  This is at best, user-unfriendly, and at worst, a security issue.  Later, we'll add logic to return safe and user-friendly errors back to the client.
 
 Let's test our changes.  Run our curl command from above:
 
 `curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "mutation CreateUser($email: String!) { createUser(email: $email) { id email } }", "args": { "email": "kevin@dundermifflin.com" } }'`
 
-We should get back `{"data":{"createUser":{"id":"5955fad170cc03b92a1c6199","email":"kevin@dundermifflin.com"}}}` the first time it's run.  If we run the same command a second time, we should get back:
+We should get back `{"data":{"createUser":{"id":"5955fad170cc03b92a1c6199","email":"kevin@dundermifflin.com"}}}` the first time it's run (your ID will be different).  If we run the same command a second time, we should get back:
 
 `{"errors":[{"message":"E11000 duplicate key error collection: bnb-book.User index: idx_User_email dup key: { : \"kevin@dundermifflin.com\" }","locations":[{"line":1,"column":40}],"path":["createUser"]}],"data":{"createUser":null}}`
 
 Excellent!  Our response contains an `errors` array that contains a message describing the problem: we already added "kevin@dundermifflin.com" as a user.
 
-Let's try our `getUser` function:
+Let's try our `getUser` function (change the ID here to the one you received above!):
 
 `curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "query GetUserById($id: ID!) { getUser(id: $id) { id email } }", "args": { "id": "5955fad170cc03b92a1c6199" } }'`
 
