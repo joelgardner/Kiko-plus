@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "A modern JS app (III): backend architecture"
-description: "Part 4: In this post, we'll finalize our backend architecture by integrating SenecaJS, which will facilitate our service communication, allowing us to concentrate on business logic.  Our backend will be a web of services, each of which has one job/domain, and "
+title: "A modern JS app (IV): backend architecture"
+description: "Part 4: In this post, we'll finalize our backend architecture by integrating SenecaJS, which will facilitate our service communication, allowing us to concentrate on business logic.  Our backend will be a web of services, each of which has a single responsibility and will communicate in a uniform manner with one another."
 date: 2017-06-30
 tags: [javascript, node, microservices, seneca]
 comments: true
