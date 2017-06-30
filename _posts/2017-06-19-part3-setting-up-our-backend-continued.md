@@ -120,7 +120,7 @@ type Mutation {
 ```
 Create a `gateway` folder in `src`, and inside it, add a `resolvers.js` with contents:
 
-```
+```js
 import R from 'ramda'
 
 const users = [
@@ -206,9 +206,9 @@ Done?  Created your `/data/db` directory?  Run the `mongod` command to make sure
 
 `"start": "./node_modules/.bin/concurrently \"cd client && npm start\" \"cd server && npm run watch\" \"mongod\""`
 
-> If you are using Mongo DB for more than 1 project, it probably makes less sense to do the previous step, and instead, just maintain an extra (permanent) terminal window to run the Mongo server from.
-
 Now when we run `npm start` in our base directory, we'll kick off 3 processes: the client and server apps, and Mongo.
+
+> Alternatively, you may prefer just to maintain an extra (permanent) terminal window to run the Mongo server from, without adding the `mongod` command to our `npm start`, as it adds a bit of startup time.
 
 Let's now install the Node.js mongodb driver.  In `server/`:
 
@@ -224,7 +224,7 @@ In `storage/index.js`, we'll have the following:
 
 ```js
 // @flow
-import { MongoClient } from 'mongodb'
+import { MongoClient, ObjectID } from 'mongodb'
 
 //** URL where Mongo server is listening
 const url = 'mongodb://localhost:27017/bnb-book'
@@ -236,50 +236,53 @@ let db
 
 /**
   Async function connects to Mongo instance and creates connection pool.
-  @returns {Object|false} DB context object if connection succeeded, false if connection failed.
+  @returns {Object} DB context object if connection succeeded, logs & throws exception if connection failed.
 */
-export async function setupStorage() : Object|bool {
+export async function setupStorage() : Object {
   try {
     db = await MongoClient.connect(url)
     return db
   }
-  catch(e : Error) {
+  catch(e) {
     console.log('Error establishing connection to Mongo:', e)
-    return false
+    throw e
   }
 }
 
 
 /**
   Method inserts objects into datastore.
-  @param {string} catalog - Name of the type (or table) to be inserted.
-  @param Object|Array<Object> - Item or array of items to be inserted.
-    If a single item is passed, it will be wrapped in an array.
-  @return {Object|false} - Object describing the result of the operation, or false if the operation failed.
+  @param {string} collection - Name of the type (or table) to be inserted.
+  @param Object - Item or array of items to be inserted.
+  @return {Either<Error, Object>} - The inserted object -- with new id -- or null if the operation failed.
 */
-export async function insert(catalog, items) : Object {
+export async function insert(collection : string, item : Object) : any {
   try {
-    return await db.collection(catalog).insertMany(Array.isArray(items) ? items : [items])
+    const result = await db.collection(collection).insert(item)
+    return Object.assign(item, { id: result.insertedIds[0] })
   }
-  catch(e : Error) {
-    console.log(`Error inserting into Mongo catalog ${catalog}:`, e.stack)
-    return false
+  catch(e) {
+    console.log(`Error inserting into Mongo collection ${collection}:`, e.stack)
+    throw e
   }
 }
 
 
 /**
   Method retreives objects from datastore.
-  @param {string} catalog - Name of the type (or table) to be queried.
+  @param {string} collection - Name of the type (or table) to be queried.
   @param {Object} predicate - Object whose key-value pairs represent the where-clause.
   @return {Array<mixed>} - Results of the query.
 */
-export async function select(catalog, predicate) : Object {
+export async function select(collection : string, predicate : Object) : Object {
   try {
-    return await db.collection(catalog).find(predicate).toArray()
+    if (predicate._id) {
+      predicate._id = new ObjectID(predicate._id)
+    }
+    return await db.collection(collection).find(predicate).toArray()
   }
-  catch(e : Error) {
-    console.log(`Error querying catalog ${catalog}:`, e)
+  catch(e) {
+    console.log(`Error querying collection ${collection}:`, e)
     return e
   }
 }
@@ -287,17 +290,17 @@ export async function select(catalog, predicate) : Object {
 
 /**
   Method updates objects in datastore.
-  @param {string} catalog - Name of the type (or table) to be updated.
+  @param {string} collection - Name of the type (or table) to be updated.
   @param {Object} predicate - Object whose key-value pairs represent the where-clause.
   @param {Object} updates - Object whose key-value pairs represent the updates.
   @return {Array<mixed>} - Results of the query.
 */
-export async function update(catalog, predicate, updates) : Object {
+export async function update(collection : string, predicate : Object, updates : Object) : Object {
   try {
-    return await db.collection(catalog).update(predicate, { $set: updates })
+    return await db.collection(collection).update(predicate, { $set: updates })
   }
-  catch(e : Error) {
-    console.log(`Error updating in catalog ${catalog}:`, e)
+  catch(e) {
+    console.log(`Error updating in collection ${collection}:`, e)
     return e
   }
 }
@@ -305,25 +308,25 @@ export async function update(catalog, predicate, updates) : Object {
 
 /**
   Method deletes objects from datastore.
-  @param {string} catalog - Name of the type (or table) to be queried.
+  @param {string} collection - Name of the type (or table) to be queried.
   @param Object - Object whose key-value pairs represent the where-clause.
   @return {Object} - Results of the deletion.
 */
-export async function remove(catalog, predicate) : Object {
+export async function remove(collection : string, predicate : Object) : Object {
   try {
-    return await db.collection(catalog).deleteMany(predicate)
+    return await db.collection(collection).deleteMany(predicate)
   }
-  catch(e : Error) {
-    console.log(`Error deleting from catalog ${catalog}:`, e)
+  catch(e) {
+    console.log(`Error deleting from collection ${collection}:`, e)
     return e
   }
 }
 ```
 > Note that we're defining a `const url` to hold our Mongo server's URL.  Eventually, we'll need to be more robust with this and use a proper configuration library.  But for now, this is fine.
 
-Most methods are self explanatory.  `setupStorage` simply creates a connection to the Mongo server and returns the context if successful.  Catalogs are strings that reference the document type we're dealing with.  
+Most methods are self explanatory.  `setupStorage` simply creates a connection to the Mongo server and returns the context if successful.  Collections are strings that reference the document-type we're dealing with: `User`s, `Room`s, `File`s, etc.  
 
-We're using `async`/`await` here so that we can use a simple `try/catch` to handle any errors that popup when interacting with Mongo.  For now we'll just log and return the `Error` object passed to the `catch`.
+We're using `async`/`await` here so that we can use a simple `try/catch` to handle any errors that popup when interacting with Mongo.  For now we'll just log and rethrow the `Error` object passed to the `catch`.
 
 Let's not forget our tests!  We'll write some simple tests in a new file, `__tests__/mongo-tests.js`:
 
@@ -376,4 +379,227 @@ await setupStorage()
 
 We just wait for the `setupStorage` function to finish, and discard the return value (we don't need it).
 
-Now that our Mongo server is creating/reading/updating/deleting, we can start to build our queries and mutations.  
+Now that our Mongo server is creating/reading/updating/deleting, we can start to build our queries and mutations.
+
+But wait, there's more!  We need to set up some basic data-integrity checks in our Mongo schema.  For example, we don't want two  `User`s with the same email, or two `LocalAuth`s with the same usernames, of course.
+
+Let's introduce another tool called `db-migrate`, which will help us in these situations where we need to tell our Mongo instance how to behave.
+
+`npm i --save-dev db-migrate db-migrate-mongodb`
+
+Now let's create a `scripts` under our `server` directory to hold these database scripts.  In `server`:
+
+`mkdir -p scripts/database/migrations && touch scripts/database/database.json`
+
+We also created a `database.json` file which we'll populate with these contents:
+
+```json
+{
+  "dev": {
+    "driver": "mongodb",
+    "database": "bnb-book",
+    "host": "localhost"
+  }
+}
+```
+
+To make working with `db-migrate` a bit more convenient, let's add some commands to our server's `package.json`'s `scripts` property:
+
+```bash
+"db-migrate-up": "./node_modules/.bin/db-migrate up --config scripts/database/database.json --migrations-dir scripts/database/migrations/",
+"db-migrate-down": "./node_modules/.bin/db-migrate down --config scripts/database/database.json --migrations-dir scripts/database/migrations/",
+"db-migrate-create": "./node_modules/.bin/db-migrate create --config scripts/database/database.json --migrations-dir scripts/database/migrations/",
+"db-migrate-dropdb": "read -p \"*** Are you sure? Entering 'yes' or 'Y' will remove bnb-book DB from your local Mongo instance.\n> \" choice && case \"$choice\" in yes|Y ) ./node_modules/.bin/db-migrate db:drop bnb-book --config scripts/database/database.json;; * ) echo \"Nothing to do.\";; esac",
+"db-migrate-createdb": "./node_modules/.bin/db-migrate db:create bnb-book --config scripts/database/database.json"
+```
+
+Let's go over what these commands do:
+- `npm run db-migrate-up` will run all of our migrations' `up` functions.
+- `npm run db-migrate-down` will run a single migration's `down` function (this is a `db-migrate` default).  To run more than one, you can run `npm run db-migrate-down -- -c 2`, the *2* represents the number of down migrations you want to run (from the current state).
+- `npm run db-migrate-create -- createStuff` will create a new migration file, e.g., `20170630070556-createStuff.js`.
+- `npm run db-migrate-dropdb` will drop our *bnb-book* database in our Mongo instance.  It guards against an accidental execution with a prompt.
+- `npm run db-migrate-createdb` will create an empty *bnb-book* database in our Mongo instance.
+
+Then, we'll create our first migration, which will create the collections we need:
+
+`npm run db-migrate-create -- createCollections`
+
+This will create a new file in `server/scripts/database/migrations` that looks like `20170629172134-createCollections.js`.  Your numbers will be different; they just represent the current date.  The file contains two exports called `up` and `down`.  These functions will be used to perform a migration (`up`) and rollback a migration (`down`).  Let's complete both here:
+
+```js
+exports.up = function(db) {
+  // create collections
+  return Promise.all([
+    db.createCollection('User'),
+    db.createCollection('LocalAuth'),
+    db.createCollection('Property'),
+    db.createCollection('Address'),
+    db.createCollection('Room'),
+    db.createCollection('File')
+  ])
+  // create unique indices
+  .then(() => Promise.all([
+    db.addIndex('User', 'idx_User_email', ['email'], true),
+    db.addIndex('LocalAuth', 'idx_LocalAuth_username', ['username'], true)
+  ]))
+};
+
+exports.down = function(db) {
+  // drop all collections
+  return Promise.all([
+    db.dropCollection('User'),
+    db.dropCollection('LocalAuth'),
+    db.dropCollection('Property'),
+    db.dropCollection('Address'),
+    db.dropCollection('Room'),
+    db.dropCollection('File')
+  ])
+};
+```
+
+We're simply creating a collection for each of our entities, and adding a unique index on `User.email` and `LocalAuth.username` (technically, we'll be using the email *as* the username -- but with this schema, we have a choice of using emails or regular, non-email usernames).
+
+To test our migration, execute `npm run db-migrate-up`.  If you see the following, we're good to go:
+
+```bash
+[INFO] Processed migration 20170629172134-createCollections
+[INFO] Done
+```
+
+> You can also test our `db-migrate-down` command.
+
+Whew!  Lots of DB boilerplate, but that's all done.  Let's create some objects!  Look at `gateway/resolvers.js`.  It's using an in-memory array to track our users.  Let's change this and use our shiny new Mongo instance instead.  Change the contents of `resolvers.js` to:
+
+```js
+import { select, insert } from '../storage'
+
+export async function getUser({ id }, context) {
+  try {
+    const results = await select('User', { _id: id })
+    return Object.assign(results[0], { id : results[0]._id })
+  }
+  catch (e) {
+    console.log(e)
+    throw e
+  }
+}
+
+export async function createUser(user, context) {
+  try {
+    return await insert('User', user)
+  }
+  catch (e) {
+    console.log(e)
+    throw e
+  }
+}
+```
+
+> Note that in the `catch` of `createUser` and `getUser`, we're logging the exception and simply re-throwing.  This will cause the API to return the exception message down the wire to the client.  This is at best, user-unfriendly, and at worst, a secuirty issue.  Later, we'll add logic to return safe and user-friendly errors back to the client.
+
+Let's test our changes.  Run our curl command from above:
+
+`curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "mutation CreateUser($email: String!) { createUser(email: $email) { id email } }", "args": { "email": "kevin@dundermifflin.com" } }'`
+
+We should get back `{"data":{"createUser":{"id":"5955fad170cc03b92a1c6199","email":"kevin@dundermifflin.com"}}}` the first time it's run.  If we run the same command a second time, we should get back:
+
+`{"errors":[{"message":"E11000 duplicate key error collection: bnb-book.User index: idx_User_email dup key: { : \"kevin@dundermifflin.com\" }","locations":[{"line":1,"column":40}],"path":["createUser"]}],"data":{"createUser":null}}`
+
+Excellent!  Our response contains an `errors` array that contains a message describing the problem: we already added "kevin@dundermifflin.com" as a user.
+
+Let's try our `getUser` function:
+
+`curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "query GetUserById($id: ID!) { getUser(id: $id) { id email } }", "args": { "id": "5955fad170cc03b92a1c6199" } }'`
+
+This should return:
+
+`{"data":{"getUser":{"id":"5955fad170cc03b92a1c6199","email":"kevin@dundermifflin.com"}}}`
+
+Excellent.  Two basic operations, but enough of a basis to start sending requests from the frontend.
+
+#### Back to the front
+While we're not done fleshing out our API, we can return to the frontend a bit.  Let's send a GraphQL request.  Change `client/src/App.js` to:
+
+```js
+import React, { Component } from 'react'
+import './App.css'
+import * as api from './api'
+
+class App extends Component {
+  constructor() {
+    super()
+    this.state = {
+      email: '',
+      id: null
+    }
+  }
+
+  render() {
+    return (
+      <div className="App">
+        <div>Create user:</div>
+        <div>
+          <span>Email</span>
+          <input type="text" defaultValue={this.state.email} onChange={e => this.setState({ email: e.target.value })} />
+        </div>
+        <div>
+          <button onClick={() => this.handleClick(this.state.email)}>Create User</button>
+        </div>
+        <span>{this.state.id === null ? '' : `The user's ID is ${this.state.id}`}</span>
+        <span style={{ color:'#f00' }}>{this.state.error}</span>
+      </div>
+    )
+  }
+
+  async handleClick(email) {
+    const result = await api.createUser(email)
+    if (result.errors) {
+      this.setState({ error: result.errors[0].message, id: null })
+    }
+    else {
+      this.setState({ email: result.data.createUser.email, id: result.data.createUser.id, error: null })
+    }
+  }
+}
+
+export default App
+```
+
+And `client/src/api.js` to:
+
+```js
+export function createUser(email) {
+  return graphql(
+    `mutation CreateUser($email: String!) {
+      createUser(email: $email) {
+        id
+        email
+      }
+    }`,
+    { email }
+  )
+}
+
+function graphql(query, args) {
+  return send(`/graphql`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({ query, args })
+  })
+}
+
+async function send(url, options) {
+  const res = await fetch(url, options)
+  if (!res.ok) {
+    const err = new Error(await res.json())
+    return Promise.reject(err)
+  }
+  return res.json()
+}
+```
+
+And play around with our new form that creates users.  It displays the user's ID if successful, and the error if not.  Obviously we've got a long way to go for our app, but this is a start!
+
+Read on, as we will fully defined our backend's architecture in the next post!
