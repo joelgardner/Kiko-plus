@@ -197,9 +197,9 @@ Back to our our new function from above, `_try`.  It executes an asynchronous fu
 
 For an example, check out our `storage-listener.js` above.  The value returned from `await connectToStorage()` is a `Result`.  
 
-If the call was successful (`Ok`), the `map` call will execute and pass our DB connection context.  In the `map` handler, start the Seneca listener, and tell it to use the storage plugin, which defines which patterns the storage service listens for.
+If the call was successful, the `map` handler will execute and pass our DB connection context.  In the handler, we start the Seneca listener, and tell it to use the storage plugin, which defines which patterns the storage service listens for.
 
-But if the call to `connectToStorage` failed for some reason (maybe `mongod` isn't running), the `orElse` handler is executed with the failure reason, which is logged, and then the process dies.  This is exactly what we want.
+But if the call to `connectToStorage` failed for any reason (maybe `mongod` isn't running), the `orElse` handler is executed with a string describing the error, which is logged, and then the process dies.  This is exactly what we want.
 
 So given this new information, an overhaul of `storage/index.js` is in order:
 
@@ -256,11 +256,11 @@ export async function deleteOne(collection : string, id : String) : Object {
 }
 ```
 
-One more thing.  While Mongo automatically generates an `_id` property on all objects, it's a long, non-userfriendly ID that looks odd in URLs.  We'll actually use the library `shortid` to generate a URL friendly ID on each object we create, referenced by an `id` property.  This also frees us from juggling between GraphQL expecting (requiring, in fact) an `id` property and Mongo's default `_id`.
+One more thing.  While Mongo automatically generates an `_id` property on all objects, it's a long, not-so-user-friendly ID that looks odd in URLs.  We'll actually use the library `shortid` to generate a URL friendly ID on each object we create, referenced by an `id` property.  This also frees us from juggling between GraphQL expecting (requiring, in fact) an `id` property and Mongo's default `_id`.
 
 `npm i --save shortid`
 
-At this point, our `storage` service is a self-contained, standalone service that will be run as a separate process:
+At this point, our `storage` service is a self-contained, standalone service that will be run as a separate process.  In a separate terminal window:
 
 `./node_modules/.bin/babel-node src/services/storage/storage-listener.js`
 
@@ -269,3 +269,21 @@ You should see something like:
 ```bash
 {"kind":"notice","notice":"hello seneca 4q9l5u9if3pb/1498981616014/8678/3.3.0/-","level":"info","when":1498981616443}
 ```
+
+Also run `npm run watch` in `server` to start the `gateway` service.
+
+Now if we run our curl commands from earlier:
+
+`curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "mutation CreateUser($input: UserInput) { createUser(input: $input) { id email firstName lastName } }", "args": { "input": {  "email": "kevin@dundermifflin.com", "firstName": "Kevin", "lastName": "Malone" } } }'`
+
+We'll get:
+
+`{"data":{"createUser":{"id":"ry7GUNI4Z","email":"kevin@dundermifflin.com","firstName":"Kevin","lastName":"Malone"}}}`
+
+`curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "query FetchUser($id: ID!) { fetchUser(id: $id) { id email firstName lastName } }", "args": { "id": "ry7GUNI4Z" } }'`
+
+Returns:
+
+`{"data":{"fetchUser":{"id":"ry7GUNI4Z","email":"kevin@dundermifflin.com","firstName":"Kevin","lastName":"Malone"}}}`
+
+Woohoo!

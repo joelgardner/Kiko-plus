@@ -42,6 +42,14 @@ As stated earlier, we'll use GraphQL to serve our API.  GraphQL provides a langu
 type User {
   id: ID!
   email: String!
+  firstName: String
+  lastName: String
+}
+
+input UserInput {
+  email: String
+  firstName: String
+  lastName: String
 }
 
 type LocalAuth {
@@ -75,6 +83,16 @@ type Room {
 type File {
   id: ID!
   url: String!
+}
+
+type Query {
+  fetchUser(id: ID!): User
+}
+
+type Mutation {
+  createUser(input: UserInput): User
+  updateUser(id: ID!, input: UserInput): User
+  deleteUser(id: ID!): User
 }
 ```
 
@@ -113,12 +131,12 @@ const users = [
   { id: 5, email: 'andy@dundermifflin.com' },
 ]
 
-export function getUser({ id }, context) {
+export function fetchUser({ id }, context) {
   return users[id]
 }
 
-export function createUser({ email }, context) {
-  users.push({ id: users.length, email })
+export function createUser({ input }, context) {
+  users.push({ id: users.length, email: input.email, firstName: input.firstName, lastName: input.lastName })
   return R.last(users)
 }
 ```
@@ -162,7 +180,7 @@ async function init() {
 
 We're now listening at `/graphql` for requests.  Let's test our endpoint.  Run the following curl request:
 
-`curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "query GetUserById($id: ID!) { getUser(id: $id) { id email } }", "args": { "id": 3 } }'`
+`curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "query FetchUser($id: ID!) { fetchUser(id: $id) { id email firstName lastName } }", "args": { "id": "3" } }'`
 
 You should be getting the response:
 
@@ -170,7 +188,7 @@ You should be getting the response:
 
 Woohoo!  Let's create a new user:
 
-`curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "mutation CreateUser($email: String!) { createUser(email: $email) { id email } }", "args": { "email": "kevin@dundermifflin.com" } }'`
+`curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "mutation CreateUser($input: UserInput) { createUser(input: $input) { id email } }", "args": { "input": { "email": "kevin@dundermifflin.com", "firstName": "Kevin", "lastName": "Malone" } } }'`
 
 This should return:
 
