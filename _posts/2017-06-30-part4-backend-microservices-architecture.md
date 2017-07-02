@@ -280,6 +280,8 @@ We'll get:
 
 `{"data":{"createUser":{"id":"ry7GUNI4Z","email":"kevin@dundermifflin.com","firstName":"Kevin","lastName":"Malone"}}}`
 
+Now to fetch:
+
 `curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "query FetchUser($id: ID!) { fetchUser(id: $id) { id email firstName lastName } }", "args": { "id": "ry7GUNI4Z" } }'`
 
 Returns:
