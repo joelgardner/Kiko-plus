@@ -33,13 +33,14 @@ This is where Seneca comes in.  It takes care of the inter-service communication
 
 #### Directory Structure
 At the moment, you might say our directory structure on the backend is in disarray.  We have in `src`:
-- `gateway`
- - `resolvers.js`
-- `storage`
- - `index.js`
-- `index.js`
-- `schema.graphql`
-
+```
+- gateway/
+  - resolvers.js
+- storage/
+  - index.js
+- index.js
+- schema.graphql
+```
 > `sum.js` is still there too.  Delete it.
 
 There will certainly be come common utility code (or Flow types) that multiple services will want to use, so we need a way to distinguish this sort of shared, common code with a standalone service.
