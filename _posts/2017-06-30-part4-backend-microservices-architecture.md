@@ -142,7 +142,7 @@ iife(async () => {
 })
 ```
 
-We've introduce a few new dependencies here:
+We've introduced a few new dependencies here:
  - In `storage-listener.js`, we import something called `iife` from `../../util`.  `iife` is just a very simple wrapper around an `async` function that cleans up our code a bit:
 
 ```js
@@ -183,7 +183,7 @@ export async function _try(fn : () => any) {
 }
 ```
 
-You'll notice we added another function: `_try`.  This leads us to how our services will communicate with eachother.  Up until now we've made heavy use of traditional `try/catch`es.  Because we've been running our "services" inside the same process, a `try`/`catch` works fine.  But our microservices will now run in separate processes (or even machines), and the `gateway` service can't just `catch` an exception from the `storage` service in such an environment.
+You'll notice we added another function: `_try`.  This leads us to how our services will communicate with eachother.  Up until now we've made heavy use of traditional `try/catch`.  Because we've been running our "services" inside the same process, a `try/catch` works fine.  But our microservices will now run in separate processes (or even machines), and the `gateway` service can't just `catch` an exception from the `storage` service in such an environment.
 
 To facilitate easy communication between services, we need a way to represent:
  - a successful call with a result value
@@ -191,9 +191,15 @@ To facilitate easy communication between services, we need a way to represent:
 
 
 #### Enter Folktale
-We'll use a library called [Folktale](http://folktale.origamitower.com/) which contains lots of helpful stuff.  In particular, [Result](http://folktale.origamitower.com/api/v2.0.0/en/folktale.result.html) is just what we wished for.  It describes a success or failed call and wraps the result, be it value or error.  It is easily serializeable via `.toJSON()`/`fromJSON()`, so it works well across service boundaries.
+We'll use a library called [Folktale](http://folktale.origamitower.com/) which contains lots of helpful stuff.  In particular, [Result](http://folktale.origamitower.com/api/v2.0.0/en/folktale.result.html) is just what we wished for.  It describes a successful or failed call and wraps the result, be it value or error.  It is easily serializeable via `.toJSON()`/`fromJSON()`, so it works well across service boundaries.
 
 Back to our our new function from above, `_try`.  It executes an asynchronous function, and if successful, wraps and returns the result in `Result.Ok(...)`.  If the call failed, it returns `Result.Error(...)`.
+
+For an example, check out our `storage-listener.js` above.  The value returned from `await connectToStorage()` is a `Result`.  
+
+If the call was successful (`Ok`), the `map` call will execute and pass our DB connection context.  In the `map` handler, start the Seneca listener, and tell it to use the storage plugin, which defines which patterns the storage service listens for.
+
+But if the call to `connectToStorage` failed for some reason (maybe `mongod` isn't running), the `orElse` handler is executed with the failure reason, which is logged, and then the process dies.  This is exactly what we want.
 
 So given this new information, an overhaul of `storage/index.js` is in order:
 
