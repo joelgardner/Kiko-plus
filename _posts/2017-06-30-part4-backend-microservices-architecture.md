@@ -193,6 +193,8 @@ To facilitate easy communication between services, we need a way to represent:
 #### Enter Folktale
 We'll use a library called [Folktale](http://folktale.origamitower.com/) which contains lots of helpful stuff.  In particular, [Result](http://folktale.origamitower.com/api/v2.0.0/en/folktale.result.html) is just what we wished for.  It describes a successful or failed call and wraps the result, be it value or error.  It is easily serializeable via `.toJSON()`/`fromJSON()`, so it works well across service boundaries.
 
+`npm i --save folktale`
+
 Back to our our new function from above, `_try`.  It executes an asynchronous function, and if successful, wraps and returns the result in `Result.Ok(...)`.  If the call failed, it returns `Result.Error(...)`.
 
 For an example, check out our `storage-listener.js` above.  The value returned from `await connectToStorage()` is a `Result`.  
@@ -200,6 +202,8 @@ For an example, check out our `storage-listener.js` above.  The value returned f
 If the call was successful, the `map` handler will execute and pass our DB connection context.  In the handler, we start the Seneca listener, and tell it to use the storage plugin, which defines which patterns the storage service listens for.
 
 But if the call to `connectToStorage` failed for any reason (maybe `mongod` isn't running), the `orElse` handler is executed with a string describing the error, which is logged, and then the process dies.  This is exactly what we want.
+
+> Side note: Seneca uses the `reply` function to send responses.  It is a traditional Node callback where the first parameter is an Error, and the second parameter is the result, if successful.  We will forego this mechanism since our `Result` takes care of that for us.  As such, we'll *always* return our Result as the 2nd argument.  See `storage-patterns.js`.
 
 So given this new information, an overhaul of `storage/index.js` is in order:
 
@@ -267,8 +271,6 @@ One more thing.  While Mongo automatically generates an `_id` property on all ob
 
 `npm i --save shortid`
 
-> Seneca uses the `reply` function to send responses.  It is a traditional Node callback where the first parameter is an Error, and the second parameter is the result, if successful.  We will forego this mechanism since our `Result` takes care of that for us.  As such, we'll *always* return our Result as the 2nd argument.  See `storage-patterns.js`.
-
 At this point, our `storage` service is a self-contained, standalone service that will be run as a separate process.  In a separate terminal window:
 
 `./node_modules/.bin/babel-node src/services/storage/storage-listener.js`
@@ -283,19 +285,19 @@ Also run `npm run watch` in `server` to start the `gateway` service.
 
 Now if we run our curl commands from earlier:
 
-`curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "mutation CreateUser($input: UserInput) { createUser(input: $input) { id email firstName lastName } }", "args": { "input": {  "email": "kevin@dundermifflin.com", "firstName": "Kevin", "lastName": "Malone" } } }'`
+`curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "mutation CreateUser($input: UserInput) { createUser(input: $input) { id email firstName lastName } }", "args": { "input": {  "email": "dwight@dundermifflin.com", "firstName": "Dwight", "lastName": "Schrute" } } }'`
 
 We'll get:
 
-`{"data":{"createUser":{"id":"ry7GUNI4Z","email":"kevin@dundermifflin.com","firstName":"Kevin","lastName":"Malone"}}}`
+`{"data":{"createUser":{"id":"ry7GUNI4Z","email":"dwight@dundermifflin.com","firstName":"Dwight","lastName":"Schrute"}}}`
 
-Now to fetch:
+Now to fetch (remember to change the ID!):
 
 `curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "query FetchUser($id: ID!) { fetchUser(id: $id) { id email firstName lastName } }", "args": { "id": "ry7GUNI4Z" } }'`
 
 Returns:
 
-`{"data":{"fetchUser":{"id":"ry7GUNI4Z","email":"kevin@dundermifflin.com","firstName":"Kevin","lastName":"Malone"}}}`
+`{"data":{"fetchUser":{"id":"ry7GUNI4Z","email":"dwight@dundermifflin.com","firstName":"Dwight","lastName":"Schrute"}}}`
 
 Woohoo!  Now, let's fix our Mongo tests.  Change `__tests__/mongo-tests.js` to the following:
 
