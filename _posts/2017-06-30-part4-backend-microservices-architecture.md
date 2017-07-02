@@ -18,7 +18,7 @@ Before we get to the nitty-gritty, let's take a moment to think about our server
 - `gateway` - we definitely need a service that receives client requests and sends back a response
 - `booking` - we need a service to perform our booking logic
 - `inventory` - a service to maintain our room inventory
-- `storage` - a service to interact with our Postgres database to perform C.R.U.D. operations
+- `storage` - a service to interact with our Mongo database to perform C.R.U.D. operations
 - `image` - we'll use this service to interact with Amazon S3 to store the images associated with each room.  
 
 > You could argue `image` should be part of the `inventory` service.  But what if we want to implement a feature allowing guests to post pictures they've taken on their trips?  This way, we'll have a service that basically does what we want already, without having to extract such logic from `inventory`.
@@ -267,6 +267,8 @@ One more thing.  While Mongo automatically generates an `_id` property on all ob
 
 `npm i --save shortid`
 
+> Seneca uses the `reply` function to send responses.  It is a traditonal Node callback where the first parameter is an Error, and the second parameter is the result, if successful.  We will forego this mechanism since our `Result` takes care of that for us.  As such, we'll *always* return our Result as the 2nd argument.
+
 At this point, our `storage` service is a self-contained, standalone service that will be run as a separate process.  In a separate terminal window:
 
 `./node_modules/.bin/babel-node src/services/storage/storage-listener.js`
@@ -313,7 +315,7 @@ beforeAll(async () => {
   })
 })
 
-afterAll(async() => {
+afterAll(async () => {
   await disconnectFromStorage()
 })
 
