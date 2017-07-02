@@ -199,7 +199,9 @@ Let's add a `storage` folder under `server`.  It will house the files we use for
 
 `mkdir storage && touch storage/index.js`
 
-To start, we'll use Mongo's basic C.R.U.D. operations: `insertMany`, `find`, `update`, and `deleteMany`.  They map nicely to the [mutations](http://graphql.org/learn/queries/#mutations) we'll create for our GraphQL schema.
+To start, we'll use Mongo's singular C.R.U.D. operations: `insertOne`, `findOne`, `findOneAndUpdate`, and `deleteOne`.  They map nicely to the initial [mutations](http://graphql.org/learn/queries/#mutations) we'll create for our GraphQL schema.
+
+We'll also use a library called `shortid` to generate URL-friendly IDs for our entities.  Mongo generates a long alphanumeric ID that is fine, but it's good practice not to expose internal IDs.  Additionally, it allows us to not have to juggle between GraphQL expecting an `id` property and Mongo's `_id`.
 
 In `storage/index.js`, we'll have the following:
 
@@ -219,7 +221,7 @@ let db
   Async function connects to Mongo instance and creates connection pool.
   @returns {Object} DB context object if connection succeeded, logs & throws exception if connection failed.
 */
-export async function setupStorage() : Object {
+export async function connectToStorage() : Object {
   try {
     db = await MongoClient.connect(url)
     return db
@@ -305,17 +307,17 @@ export async function remove(collection : string, predicate : Object) : Object {
 ```
 > Note that we're defining a `const url` to hold our Mongo server's URL.  Eventually, we'll need to be more robust with this and use a proper configuration library.  But for now, this is fine.
 
-Most methods are self explanatory.  `setupStorage` simply creates a connection to the Mongo server and returns the context if successful.  Collections are strings that reference the document-type we're dealing with: `User`s, `Room`s, `File`s, etc.  
+Most methods are self explanatory.  `connectToStorage` simply creates a connection to the Mongo server and returns the context if successful.  Collections are strings that reference the document-type we're dealing with: `User`s, `Room`s, `File`s, etc.  
 
 We're using `async`/`await` here so that we can use a simple `try/catch` to handle any errors that popup when interacting with Mongo.  For now we'll just log and rethrow the `Error` object passed to the `catch`.
 
 Let's not forget our tests!  We'll write some simple tests in a new file, `__tests__/mongo-tests.js`:
 
 ```js
-import { setupStorage, insert, select, remove, update } from '../src/storage'
+import { connectToStorage, insert, select, remove, update } from '../src/storage'
 
 beforeAll(async () => {
-  let db = await setupStorage()
+  let db = await connectToStorage()
 })
 
 test('insert creates documents', async () => {
@@ -351,14 +353,14 @@ test('remove deletes documents', async () => {
 
 In addition to verifying that everything's running smoothly, these tests provide a way to see how our `storage` service will work.
 
-One more thing.  We need to have our main script call `setupStorage` when the app loads:  we'll just add these two lines after the `app.use(bodyParser.urlencoded({ extended: true }))` line in `src/index.js`:
+One more thing.  We need to have our main script call `connectToStorage` when the app loads:  we'll just add these two lines after the `app.use(bodyParser.urlencoded({ extended: true }))` line in `src/index.js`:
 
 ```js
 // mongo setup
-await setupStorage()
+await connectToStorage()
 ```
 
-We just wait for the `setupStorage` function to finish, and discard the return value (we don't need it).
+We just wait for the `connectToStorage` function to finish, and discard the return value (we don't need it).
 
 Now that our Mongo server is creating/reading/updating/deleting, we can start to build our queries and mutations.
 
