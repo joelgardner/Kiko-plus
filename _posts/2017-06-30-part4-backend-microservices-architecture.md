@@ -267,7 +267,7 @@ One more thing.  While Mongo automatically generates an `_id` property on all ob
 
 `npm i --save shortid`
 
-> Seneca uses the `reply` function to send responses.  It is a traditonal Node callback where the first parameter is an Error, and the second parameter is the result, if successful.  We will forego this mechanism since our `Result` takes care of that for us.  As such, we'll *always* return our Result as the 2nd argument.
+> Seneca uses the `reply` function to send responses.  It is a traditional Node callback where the first parameter is an Error, and the second parameter is the result, if successful.  We will forego this mechanism since our `Result` takes care of that for us.  As such, we'll *always* return our Result as the 2nd argument.  See `storage-patterns.js`.
 
 At this point, our `storage` service is a self-contained, standalone service that will be run as a separate process.  In a separate terminal window:
 
