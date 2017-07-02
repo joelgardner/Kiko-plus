@@ -61,14 +61,16 @@ After running all these commands, our `src` folder should have one item in it: a
 If we try to run our server application, we'll get a few errors that occur because we just changed a bunch of paths.  Let's fix this.
 
 In `server/package.json`, make the following changes:
- - Update the `"main"` property to:
-  - `"main": "src/services/gateway/index.js",`
- - Update the `"scripts"."babel-node"` property to:
-  - `"babel-node": "./node_modules/.bin/babel-node src/services/gateway/index.js",`
+- Update the `"main"` property to:
+
+ `"main": "src/services/gateway/index.js",`
+- Update the `"scripts"."babel-node"` property to:
+
+ `"babel-node": "./node_modules/.bin/babel-node src/services/gateway/index.js",`
 
 In `server/src/services/gateway/index.js`:
- - Remove the import of `connectToStorage` (`import { connectToStorage } from './storage'`)
- - Remove the call to `await connectToStorage()`
+- Remove the import of `connectToStorage` (`import { connectToStorage } from './storage'`)
+- Remove the call to `await connectToStorage()`
 
 Additionally, our tests will be broken as well.  Hold tight, we'll fix them in a bit.
 
