@@ -84,16 +84,6 @@ type File {
   id: ID!
   url: String!
 }
-
-type Query {
-  fetchUser(id: ID!): User
-}
-
-type Mutation {
-  createUser(input: UserInput): User
-  updateUser(id: ID!, input: UserInput): User
-  deleteUser(id: ID!): User
-}
 ```
 
 This is a very basic schema that will allow us to build our B&B Booking app.  It simply creates some types that define the data we need to manage and book properties.  
@@ -109,12 +99,14 @@ Now let's install the GraphQL library:
 Let's implement an API call to create users, and then some inventory.  Add the following to our `schema.graphql` file:
 
 ```
-type Query  {
-  getUser(id: ID!) : User
+type Query {
+  fetchUser(id: ID!): User
 }
 
 type Mutation {
-  createUser(email: String!) : User
+  createUser(input: UserInput): User
+  updateUser(id: ID!, input: UserInput): User
+  deleteUser(id: ID!): User
 }
 ```
 Create a `gateway` folder in `src`, and inside it, add a `resolvers.js` with contents:
@@ -180,7 +172,7 @@ async function init() {
 
 We're now listening at `/graphql` for requests.  Let's test our endpoint.  Run the following curl request:
 
-`curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "query FetchUser($id: ID!) { fetchUser(id: $id) { id email firstName lastName } }", "args": { "id": "3" } }'`
+`curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "query FetchUser($id: ID!) { fetchUser(id: $id) { id email } }", "args": { "id": "3" } }'`
 
 You should be getting the response:
 
@@ -217,7 +209,7 @@ Let's add a `storage` folder under `server`.  It will house the files we use for
 
 `mkdir storage && touch storage/index.js`
 
-To start, we'll use Mongo's singular C.R.U.D. operations: `insertOne`, `findOne`, `findOneAndUpdate`, and `deleteOne`.  They map nicely to the initial [mutations](http://graphql.org/learn/queries/#mutations) we'll create for our GraphQL schema.
+To start, we'll use Mongo's singular C.R.U.D. operations: `insertOne`, `findOne`, `findOneAndUpdate`, and `findOneAndDelete`.  They map nicely to the initial [mutations](http://graphql.org/learn/queries/#mutations) we'll create for our GraphQL schema.
 
 We'll also use a library called `shortid` to generate URL-friendly IDs for our entities.  Mongo generates a long alphanumeric ID that is fine, but it's good practice not to expose internal IDs.  Additionally, it allows us to not have to juggle between GraphQL expecting an `id` property and Mongo's `_id`.
 
@@ -225,104 +217,90 @@ In `storage/index.js`, we'll have the following:
 
 ```js
 // @flow
-import { MongoClient, ObjectID } from 'mongodb'
+import 'babel-polyfill'
+import { MongoClient } from 'mongodb'
+import R from 'ramda'
+import shortid from 'shortid'
 
 //** URL where Mongo server is listening
 const url = 'mongodb://localhost:27017/bnb-book'
 
 /**
-  Private variable that holds the connection to Database.
+  Variable that holds the connection to Database.
 */
 let db
 
-/**
-  Async function connects to Mongo instance and creates connection pool.
-  @returns {Object} DB context object if connection succeeded, logs & throws exception if connection failed.
-*/
-export async function connectToStorage() : Object {
+export async function connectToStorage() {
   try {
     db = await MongoClient.connect(url)
     return db
   }
-  catch(e) {
-    console.log('Error establishing connection to Mongo:', e)
+  catch (e) {
+    console.log(e)
     throw e
   }
 }
 
-
-/**
-  Method inserts objects into datastore.
-  @param {string} collection - Name of the type (or table) to be inserted.
-  @param Object - Item or array of items to be inserted.
-  @return {Either<Error, Object>} - The inserted object -- with new id -- or null if the operation failed.
-*/
-export async function insert(collection : string, item : Object) : any {
+export async function disconnectFromStorage() {
   try {
-    const result = await db.collection(collection).insert(item)
-    return Object.assign(item, { id: result.insertedIds[0] })
+    await db.close()
+    db = null
   }
-  catch(e) {
-    console.log(`Error inserting into Mongo collection ${collection}:`, e.stack)
+  catch (e) {
+    console.log(e)
     throw e
   }
 }
 
-
-/**
-  Method retreives objects from datastore.
-  @param {string} collection - Name of the type (or table) to be queried.
-  @param {Object} predicate - Object whose key-value pairs represent the where-clause.
-  @return {Array<mixed>} - Results of the query.
-*/
-export async function select(collection : string, predicate : Object) : Object {
+export async function insertOne(collection : string, item : Object) {
   try {
-    if (predicate._id) {
-      predicate._id = new ObjectID(predicate._id)
-    }
-    return await db.collection(collection).find(predicate).toArray()
+    const itemWithId = R.assoc('id', shortid.generate(), item)
+    const result = await db.collection(collection).insert(itemWithId)
+    return result.ops[0]
   }
-  catch(e) {
-    console.log(`Error querying collection ${collection}:`, e)
-    return e
+  catch (e) {
+    console.log(e)
+    throw e
   }
 }
 
-
-/**
-  Method updates objects in datastore.
-  @param {string} collection - Name of the type (or table) to be updated.
-  @param {Object} predicate - Object whose key-value pairs represent the where-clause.
-  @param {Object} updates - Object whose key-value pairs represent the updates.
-  @return {Array<mixed>} - Results of the query.
-*/
-export async function update(collection : string, predicate : Object, updates : Object) : Object {
+export async function fetchOne(collection : string, id : string) : Object {
   try {
-    return await db.collection(collection).update(predicate, { $set: updates })
+    return await db.collection(collection).findOne({ id })
   }
-  catch(e) {
-    console.log(`Error updating in collection ${collection}:`, e)
-    return e
+  catch (e) {
+    console.log(e)
+    throw e
   }
 }
 
-
-/**
-  Method deletes objects from datastore.
-  @param {string} collection - Name of the type (or table) to be queried.
-  @param Object - Object whose key-value pairs represent the where-clause.
-  @return {Object} - Results of the deletion.
-*/
-export async function remove(collection : string, predicate : Object) : Object {
+export async function updateOne(collection : string, id : string, input : Object) : Object {
   try {
-    return await db.collection(collection).deleteMany(predicate)
+    let result = await db.collection(collection).findOneAndUpdate(
+      { id },
+      { $set: input },
+      { returnOriginal: false }
+    )
+    return result.value
   }
-  catch(e) {
-    console.log(`Error deleting from collection ${collection}:`, e)
-    return e
+  catch (e) {
+    console.log(e)
+    throw e
+  }
+}
+
+export async function deleteOne(collection : string, id : String) : Object {
+  try {
+    let result = await db.collection(collection).findOneAndDelete({ id })
+    return result.value
+  }
+  catch (e) {
+    console.log(e)
+    throw e
   }
 }
 ```
+
 > Note that we're defining a `const url` to hold our Mongo server's URL.  Eventually, we'll need to be more robust with this and use a proper configuration library.  But for now, this is fine.
 
 Most methods are self explanatory.  `connectToStorage` simply creates a connection to the Mongo server and returns the context if successful.  Collections are strings that reference the document-type we're dealing with: `User`s, `Room`s, `File`s, etc.  
@@ -338,34 +316,21 @@ beforeAll(async () => {
   let db = await connectToStorage()
 })
 
-test('insert creates documents', async () => {
-  let { result } = await insert('testDocuments', [{ test: 1 }, { test: 2 }, { test: 3 }])
-  expect(result.ok).toBe(1)
-  expect(result.n).toBe(3)
-});
+// technically not exactly a "unit" test but will do for now
+test('insertOne creates a document, updateOne updates it, fetchOne retrieves it, deleteOne removes it', async () => {
+  let result = await insertOne('testDocuments', { test: 1 })
+  expect(result).toHaveProperty('test', 1)
 
-test('update modifies documents', async () => {
-  let { result } = await update(
-    'testDocuments',  // catalog
-    { test: 1 },      // predicate: update documents with test=1
-    { test2: 2 }      // update:    set test2=2
-  )
-  expect(result.n).toBeGreaterThan(0)
-});
+  let updated = await updateOne('testDocuments', result.id, { test2: 2 })
+  expect(updated).toHaveProperty('test2', 2)
 
-test('select retrieves documents with empty filter', async () => {
-  let results = await select('testDocuments', {})
-  expect(results.length).toBeGreaterThan(0)
-});
+  let fetched = await fetchOne('testDocuments', result.id)
+  expect(fetched.id).toBe(result.id)
+  expect(fetched).toHaveProperty('test2', 2)
 
-test('select retrieves documents with filter', async () => {
-  let results = await select('testDocuments', { test2: 2 })
-  expect(results.length).toBe(1)
-});
-
-test('remove deletes documents', async () => {
-  let { result } = await remove('testDocuments', {})
-  expect(result.n).toBeGreaterThan(0)
+  let deleted = await deleteOne('testDocuments', fetched.id)
+  expect(deleted.id).toBe(result.id)
+  expect(deleted).toHaveProperty('test2', 2)
 });
 ```
 
@@ -500,7 +465,7 @@ export async function createUser(user, context) {
 
 Let's test our changes.  Run our curl command from above:
 
-`curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "mutation CreateUser($email: String!) { createUser(email: $email) { id email } }", "args": { "email": "kevin@dundermifflin.com" } }'`
+`curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "mutation CreateUser($input: UserInput) { createUser(input: $input) { id email } }", "args": { "input": {  "email": "dwight@dundermifflin.com" } } }'`
 
 We should get back `{"data":{"createUser":{"id":"5955fad170cc03b92a1c6199","email":"kevin@dundermifflin.com"}}}` the first time it's run (your ID will be different).  If we run the same command a second time, we should get back:
 
@@ -571,13 +536,13 @@ And `client/src/api.js` to:
 ```js
 export function createUser(email) {
   return graphql(
-    `mutation CreateUser($email: String!) {
-      createUser(email: $email) {
+    `mutation CreateUser($input: UserInput!) {
+      createUser(input: $input) {
         id
         email
       }
     }`,
-    { email }
+    { input: { email } }
   )
 }
 

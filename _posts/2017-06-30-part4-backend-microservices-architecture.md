@@ -185,10 +185,9 @@ export async function _try(fn : () => any) {
 
 You'll notice we added another function: `_try`.  This leads us to how our services will communicate with eachother.  Up until now we've made heavy use of traditional `try/catch`.  Because we've been running our "services" inside the same process, a `try/catch` works fine.  But our microservices will now run in separate processes (or even machines), and the `gateway` service can't just `catch` an exception from the `storage` service in such an environment.
 
-To facilitate easy communication between services, we need a way to represent:
+To facilitate easy communication between services, we need a serializeable way to represent:
  - a successful call with a result value
  - a failed call with an error, describing the failure
-
 
 #### Enter Folktale
 We'll use a library called [Folktale](http://folktale.origamitower.com/) which contains lots of helpful stuff.  In particular, [Result](http://folktale.origamitower.com/api/v2.0.0/en/folktale.result.html) is just what we wished for.  It describes a successful or failed call and wraps the result, be it value or error.  It is easily serializeable via `.toJSON()`/`fromJSON()`, so it works well across service boundaries.
@@ -267,7 +266,7 @@ export async function deleteOne(collection : string, id : String) : Object {
 }
 ```
 
-One more thing.  While Mongo automatically generates an `_id` property on all objects, it's a long, not-so-user-friendly ID that looks odd in URLs.  We'll actually use the library `shortid` to generate a URL friendly ID on each object we create, referenced by an `id` property.  This also frees us from juggling between GraphQL expecting (requiring, in fact) an `id` property and Mongo's default `_id`.
+As mentioned in Part #3, Mongo automatically generates an `_id` property on all objects, it's a long, not-so-user-friendly ID that looks odd in URLs.  We'll use the library `shortid` to generate a URL friendly ID on each object we create, referenced by an `id` property.  This also frees us from juggling between GraphQL expecting (requiring, in fact) an `id` property and Mongo's default `_id`.
 
 `npm i --save shortid`
 

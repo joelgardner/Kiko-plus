@@ -91,7 +91,7 @@ That's because we need to use Babel to transpile ES6/7 code to the type of javas
 
 So let's install Babel and its sub-dependencies:
 
-`npm i --save-dev babel-cli babel-eslint babel-plugin-transform-class-properties babel-plugin-transform-flow-strip-types babel-preset-env eslint-plugin-babel eslint-plugin-flow-header eslint-plugin-flowtype eslint-plugin-react`
+`npm i --save-dev babel-cli babel-eslint babel-plugin-transform-class-properties babel-plugin-transform-flow-strip-types babel-preset-env eslint-plugin-babel eslint-plugin-flow-header eslint-plugin-flowtype eslint-plugin-react babel-plugin-transform-object-rest-spread`
 
 Yeah... it's quite a bit.  Suffice it to say we're installing the main Babel CLI package plus a bunch of Babel plugins, presets, and a few more eslint plugins.
 
@@ -107,7 +107,8 @@ Set `.babelrc`'s contents to:
   "plugins": [
     "syntax-flow",
     "transform-flow-strip-types",
-    "transform-class-properties"
+    "transform-class-properties",
+    "transform-object-rest-spread"
   ],
   "presets": ["env"]
 }
