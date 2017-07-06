@@ -115,7 +115,7 @@ export default function storage(options) {
 // @flow
 import seneca from 'seneca'
 import { connectToStorage } from '.'
-import { iife } from '../../util'
+import { iife } from '../../bnb-book-util'
 import storage from './storage-patterns'
 
 /**
@@ -143,7 +143,7 @@ iife(async () => {
 ```
 
 We've introduced a few new dependencies here:
- - In `storage-listener.js`, we import something called `iife` from `../../util`.  `iife` is just a very simple wrapper around an `async` function that cleans up our code a bit:
+ - In `storage-listener.js`, we import something called `iife` from `../../bnb-book-util`.  `iife` is just a very simple wrapper around an `async` function that cleans up our code a bit:
 
 ```js
 iife(async () => {
@@ -159,9 +159,9 @@ vs.
 
 A subtle difference, and purely aesthetic.  But it conveys intent a bit better (iife = Immediately-Invoked Function Expression).
 
-Let's create `src/util/index.js`, which will house `iife` and other helpful functions.
+Let's create `src/bnb-book-util/index.js`, which will house `iife` and other helpful functions.
 
-`src/util/index.js`:
+`src/bnb-book-util/index.js`:
 
 ```js
 // @flow
@@ -211,7 +211,7 @@ So given this new information, an overhaul of `storage/index.js` is in order:
 // @flow
 import { MongoClient } from 'mongodb'
 import R from 'ramda'
-import { _try } from '../../util'
+import { _try } from '../../bnb-book-util'
 import shortid from 'shortid'
 
 //** URL where Mongo server is listening
@@ -349,3 +349,101 @@ test('updateOne modifies a document', async () => {
   expect(deleted).toEqual(updated)
 });
 ```
+
+#### Embrace the package.json
+
+There's a glaring issue with our architecture right now.  We want each service to be independently deployable, but our `server` folder has a single, over-arching `package.json` file.  We *could* just copy this file into the build folder for each service, but that's a bit ham-fisted: `storage` doesn't need the `express` or `graphql` dependencies, and `gateway` doesn't need the `mongodb` or `shortid` dependencies.  We will instead add a `package.json` for each service.  While a bit annoying, it does make sense: each service should be responsible for tracking its own dependencies.
+
+In `server/src/services/storage`:
+
+`npm init -- yes && npm i --save folktale mongodb ramda seneca shortid`
+
+This will create `storage/package.json` and add the service's dependencies.  Additionally, we will remove them from `server/package.json` (which we will keep, as it contains all the Babel stuff we don't need to include in the service-specific `package.json` files).
+
+What about our shared/common code in the `bnb-book-util` folder?  We'll take the easy way and add `bnb-book-util` as a local dependency to `storage/package.json`.  But first, we must add (yet another!) `package.json` file in the `bnb-book-util` folder, because `npm` requires it to install it as a dependency in other packages.  To do so, run the following inside the `bnb-book-util` directory:
+
+`npm init --yes && npm install folktale`
+
+Then, in `storage`:
+
+`npm install --save file:../../bnb-book-util`
+
+> A more proper solution would be to create a private npm repo for `bnb-book-util` and each service would add it as a dependency.  But for now, this will serve us fine.
+
+Let's also package-ize our `gateway` service.  In `server/src/services/gateway`:
+
+`npm init -- yes && npm i --save folktale body-parser express graphql seneca`
+
+Repeat the addition of `bnb-book-util` as a local dependency (see above).
+
+#### Service deployment structure
+
+The previous changes will make it possible to deploy our services independently.  When we create a deployment artifact for a service, it will consist of:
+ - the microservice directory's contents (transpiled with Babel to basic javascript)
+ - the microservice's `package.json`, so that it can `npm install` its dependencies
+ - local dependencies, e.g., the `bnb-book-util` directory
+
+For example, let's say we'll deploy the `storage` service via a Docker image.  It's structure will be:
+
+```
+package.json
+index.js
+storage-listener.js
+storage-patterns.js
+bnb-book-util/
+   index.js
+```
+
+But we're not out of the woods yet.  With structure outlined above, our services will be attempting to load `bnb-book-util` from `../../bnb-book-util`, which will (attempt to) escape the root of the image.  This leads us to a new script we will write: `scripts/build-service.sh`:
+
+```bash
+# capture the first parameter as $SERVICE
+SERVICE=$1
+
+# check that service is not empty
+if [ -z "$SERVICE" ]; then
+  echo "build-service.sh requires a single argument: the name of a directory src/services"
+  exit
+fi
+
+# check that the service exists
+if [ ! -d src/services/$SERVICE ]; then
+  echo "Invalid service: src/services/$SERVICE does not exist!"
+  exit
+fi
+
+echo "**********************************"
+echo "Building src/services/$SERVICE"
+echo "**********************************"
+
+# delete and recreate a build/{serviceName} directory
+rm -rf build/$SERVICE
+
+# copy service directory contents (excluding node_modules)
+rsync -r --exclude=node_modules src/services/$SERVICE build
+
+# copy bnb-book-util directory
+rsync -r --exclude=node_modules src/bnb-book-util build/$SERVICE
+
+# build babel-transformed javascript in out/
+./node_modules/.bin/babel --plugins babel-polyfill build/$SERVICE --out-dir build/$SERVICE
+
+# update the package.json's dependencies.bnb-book-util path
+./node_modules/.bin/json -I -f build/$SERVICE/package.json -e 'this.dependencies["bnb-book-util"]="file:./bnb-book-util"'
+./node_modules/.bin/json -I -f build/$SERVICE/package-lock.json -e 'this.dependencies["bnb-book-util"].version="file:./bnb-book-util"'
+```
+
+This is a very basic bash script which takes a service name as a parameter, and builds a deployable service.  Here are the steps it takes:
+ - Validates that the service passed in is non-empty and matches a directory in `src/services`
+ - Copies the directory contents into a build folder of the same name
+ - Copies the `bnb-book-util` package/directory into the build folder
+ - Uses Babel to transpile the ES* to valid javascript, runnable with plain Node.js without Babel
+ - Edits `package.json` (and `package-lock.json`) dependency path for `bnb-book-util`, so that Node doesn't attempt to escape the root of the directory
+
+Now we can run `./scripts/build-scripts.sh storage` and we'll have a deployable `storage` service in `build/storage`.
+
+One last thing: our use of `async/await` requires a polyfill named `babel-polyfill`, which we get for free when running our services locally via `babel-node`.  But since we'll run our deployed services via just Node, we must:
+ - Run `npm install --save babel-polyfill` in each of our service directories
+ - Add an `import babel-polyfill` statement to each `services/*/index.js` file
+
+Without these changes, our deployed services will incur a `regeneratorRuntime is not defined` error on startup.
