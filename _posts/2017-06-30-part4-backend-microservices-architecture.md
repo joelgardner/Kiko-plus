@@ -90,22 +90,22 @@ export default function storage(options) {
   this
   .add({ role: ROLE_NAME, cmd: 'fetchOne' }, async (msg, reply) => {
     const result = await fetchOne(msg.type, msg.id)
-    reply(null, result.toJSON())
+    reply(result.toJSON())
   })
 
   .add({ role: ROLE_NAME, cmd: 'insertOne' }, async (msg, reply) => {
     const result = await insertOne(msg.type, msg.input)
-    reply(null, result.toJSON())
+    reply(result.toJSON())
   })
 
   .add({ role: ROLE_NAME, cmd: 'updateOne' }, async (msg, reply) => {
     const result = await updateOne(msg.type, msg.id, msg.input)
-    reply(null, result.toJSON())
+    reply(result.toJSON())
   })
 
   .add({ role: ROLE_NAME, cmd: 'deleteOne' }, async (msg, reply) => {
     const result = await deleteOne(msg.type, msg.id, msg.input)
-    reply(null, result.toJSON())
+    reply(result.toJSON())
   })
 }
 ```
@@ -201,8 +201,6 @@ For an example, check out our `storage-listener.js` above.  The value returned f
 If the call was successful, the `map` handler will execute and pass our DB connection context.  In the handler, we start the Seneca listener, and tell it to use the storage plugin, which defines which patterns the storage service listens for.
 
 But if the call to `connectToStorage` failed for any reason (maybe `mongod` isn't running), the `orElse` handler is executed with a string describing the error, which is logged, and then the process dies.  This is exactly what we want.
-
-> Side note: Seneca uses the `reply` function to send responses.  It is a traditional Node callback where the first parameter is an Error, and the second parameter is the result, if successful.  We will forego this mechanism since our `Result` takes care of that for us.  As such, we'll *always* return our Result as the 2nd argument.  See `storage-patterns.js`.
 
 So given this new information, an overhaul of `storage/index.js` is in order:
 
@@ -445,8 +443,8 @@ This is a very basic bash script which takes a service name as a parameter, and 
 
 Now we can run `./scripts/build-scripts.sh storage` and we'll have a deployable `storage` service in `build/storage`.
 
-One last thing: our use of `async/await` requires a polyfill named `babel-polyfill`, which we get for free when running our services locally via `babel-node`.  But since we'll run our deployed services via just Node, we must:
- - Run `npm install --save babel-polyfill` in each of our service directories
- - Add an `import babel-polyfill` statement to each `services/*/index.js` file
+One last thing: our use of `async/await` requires an npm module named `regenerator-runtime`, which we get for free when running our services locally via `babel-node`.  But since we'll run our deployed services via just Node, we must:
+ - Run `npm install --save regenerator-runtime` in each of our service directories
+ - Add an `import regenerator-runtime/runtime` statement to each `services/*/index.js` file
 
 Without these changes, our deployed services will incur a `regeneratorRuntime is not defined` error on startup.
