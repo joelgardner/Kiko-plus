@@ -298,7 +298,11 @@ Returns:
 
 `{"data":{"fetchUser":{"id":"ry7GUNI4Z","email":"dwight@dundermifflin.com","firstName":"Dwight","lastName":"Schrute"}}}`
 
-Woohoo!  Now, let's fix our Mongo tests.  Change `__tests__/mongo-tests.js` to the following:
+Woohoo!  
+
+> For now, we can only query by ID.  Don't worry, we'll add more flexible calls to our API later.  For now, if you need a way to find IDs to query by, you can use the Mongo CLI: just run `mongo`, to open a shell into the Mongo API.  Then `use bnb-book` will switch to our database.  Run `db.getCollection('User').find().toArray()` to get all available `User`s.
+
+Now, let's update our Mongo tests.  Change `__tests__/mongo-tests.js` to the following:
 
 ```js
 import { connectToStorage, disconnectFromStorage, insertOne, fetchOne, deleteOne, updateOne } from '../src/services/storage'
@@ -425,7 +429,7 @@ rsync -r --exclude=node_modules src/services/$SERVICE build
 rsync -r --exclude=node_modules src/bnb-book-util build/$SERVICE
 
 # build babel-transformed javascript in out/
-./node_modules/.bin/babel --plugins babel-polyfill build/$SERVICE --out-dir build/$SERVICE
+./node_modules/.bin/babel build/$SERVICE --out-dir build/$SERVICE
 
 # update the package.json's dependencies.bnb-book-util path
 ./node_modules/.bin/json -I -f build/$SERVICE/package.json -e 'this.dependencies["bnb-book-util"]="file:./bnb-book-util"'
