@@ -452,7 +452,7 @@ Without these changes, our deployed services will incur a `regeneratorRuntime is
 #### Convert `gateway` to a Seneca service
 
 Should our `gateway` be a Seneca microservice as well?  I lean toward **yes**, it should due to the following reasons:
- - Consistency: each of our services will have an identical structure (namely the `\*-listener/patterns.js` convention)
+ - Consistency: each of our services will have an identical structure (namely the `*-listener/patterns.js` convention)
  - We can further take advantage of the capabilities that Seneca provides automatically (logging, easy changing of communication mechanism, etc.)
  - Decouples our API from our API technology.  If we want to switch from Express to Hapi, it's much easier: simply use the Seneca-Hapi plugin instead of the Seneca-Express plugin.
 
@@ -534,7 +534,7 @@ export default async function gateway(options) {
 }
 ```
 
-Delete `gateway/index.js`, and change `gateway/package.json`'s `start` script to `"node gateway-listener.js"`.
+Now, we can delete `gateway/index.js`.
 
 > If we really wanted to run with this pattern, we could even split our GraphQL logic off entirely into its own service.  But for now, this is maybe a bit of over-architecting, so we'll keep it simple.
 
@@ -557,7 +557,9 @@ And in `gateway/package.json`:
 
 Finally, let's alter our `server/package.json` file to make it easy to get our services up and running.  Add this to the `scripts` node:
 
-`"services": "find src/services/ -type d -maxdepth 1 -mindepth 1 -exec echo '\"cd {}; npm run watch;\"' \\; | xargs ../node_modules/.bin/concurrently || true",`
+```json
+"services": "find src/services/ -type d -maxdepth 1 -mindepth 1 -exec echo '\"cd {}; npm run watch;\"' \\; | xargs ../node_modules/.bin/concurrently || true",
+```
 
 Then, `npm run services` will start up any service that has a `*-listener.js` file via Concurrently.  So an `npm start` in the top-level directory and an `npm run services` in `server` would have the entire app up and running.
 
