@@ -448,3 +448,120 @@ One last thing: our use of `async/await` requires an npm module named `regenerat
  - Add an `import regenerator-runtime/runtime` statement to each `services/*/index.js` file
 
 Without these changes, our deployed services will incur a `regeneratorRuntime is not defined` error on startup.
+
+#### Convert `gateway` to a Seneca service
+
+Should our `gateway` be a Seneca microservice as well?  I lean toward **yes**, it should due to the following reasons:
+ - Consistency: each of our services will have an identical structure (namely the `\*-listener/patterns.js` convention)
+ - We can further take advantage of the capabilities that Seneca provides automatically (logging, easy changing of communication mechanism, etc.)
+ - Decouples our API from our API technology.  If we want to switch from Express to Hapi, it's much easier: simply use the Seneca-Hapi plugin instead of the Seneca-Express plugin.
+
+Seneca provides a web plugin that integrates with Express, so our changes won't be too drastic.  In `services/gateway`, install the needed modules:
+
+`npm i --save seneca-web seneca-web-adapter-express`
+
+Now we'll split `gateway/index.js` into `gateway-listener.js` and `gateway-patterns.js`:
+
+`gateway-listener.js`:
+
+```js
+// @flow
+import 'regenerator-runtime/runtime'
+import Seneca from 'seneca'
+import SenecaWeb from 'seneca-web'
+import Express from 'express'
+import SenecaWebExpress from 'seneca-web-adapter-express'
+import BodyParser from 'body-parser'
+import gateway from './gateway-patterns'
+
+const Router = Express.Router
+const context = new Router()
+const senecaWebConfig = {
+  context: context,
+  adapter: SenecaWebExpress,
+  options: { parseBody: false } // so we can use body-parser
+}
+
+const app = Express()
+  .use(BodyParser.json())
+  .use(context)
+  .listen(3001)
+
+Seneca()
+  .use(SenecaWeb, senecaWebConfig)
+  .use(gateway)
+  .client({ type:'tcp', pin: 'role:gateway' })
+```
+
+`gateway-patterns.js`:
+
+```js
+// @flow
+import { graphql, buildSchema } from 'graphql'
+import fs from 'fs'
+import { promisify } from 'util'
+import Root from './resolvers'
+
+/**
+  Seneca plugin for our API gateway
+*/
+export default async function gateway(options) {
+
+  this
+  .add({ role: 'gateway', path: 'graphql' }, async (msg, reply) => {
+    const { query, args } = msg.args.body
+    const result : Object = await graphql(schema, query, Root, { user: 'Bill' }, args)
+    reply(result)
+  })
+
+  .add('init:gateway', (msg, reply) => {
+    this.act('role:web', {
+      routes: {
+        //prefix: 'v0',
+        pin: 'role:gateway, path:*',
+        map: {
+          graphql: {
+            POST: true
+          }
+        }
+      }
+    }, reply)
+  })
+
+  const readFile : (string, string) => Promise<string> = promisify(fs.readFile)
+  const gql : string = await readFile(`${__dirname}/schema.graphql`, 'utf8')
+  const schema : Object = buildSchema(gql)
+}
+```
+
+Delete `gateway/index.js`, and change `gateway/package.json`'s `start` script to `"node gateway-listener.js"`.
+
+> If we really wanted to run with this pattern, we could even split our GraphQL logic off entirely into its own service.  But for now, this is maybe a bit of over-architecting, so we'll keep it simple.
+
+#### Service `package.json` updates and running locally
+For convenience, let's add some commands to help us when running locally.
+
+In `storage/package.json`, update the `scripts` node like so:
+
+```json
+"start": "node --require babel-register storage-listener.js",
+"watch": "nodemon --exec \"npm start\"",
+```
+
+And in `gateway/package.json`:
+
+```json
+"start": "node --require babel-register gateway-listener.js",
+"watch": "nodemon --exec \"npm start\"",
+```
+
+Finally, let's alter our `server/package.json` file to make it easy to get our services up and running.  Add this to the `scripts` node:
+
+`"services": "find src/services/ -type d -maxdepth 1 -mindepth 1 -exec echo '\"cd {}; npm run watch;\"' \\; | xargs ../node_modules/.bin/concurrently || true",`
+
+Then, `npm run services` will start up any service that has a `*-listener.js` file via Concurrently.  So an `npm start` in the top-level directory and an `npm run services` in `server` would have the entire app up and running.
+
+
+#### Wrapping up
+
+We've built out the main pattern we'll use for our backend.  While we've still got a ways to go to whip our backend into production shape, this will serve us well for now as we can finally get down to some business logic and UI!  Read on to see how we'll structure our frontend so we can start booking some rooms!
