@@ -61,12 +61,16 @@ After running all these commands, our `src` folder should have one item in it: a
 If we try to run our server application, we'll get a few errors that occur because we just changed a bunch of paths.  Let's fix this.
 
 In `server/package.json`, make the following changes:
-- Update the `"main"` property to:
+- Update the `"main"` property:
 
- `"main": "src/services/gateway/index.js",`
-- Update the `"scripts"."babel-node"` property to:
+ ```json
+ "main": "src/services/gateway/index.js",
+ ```
+- Update the `"scripts"."babel-node"` property:
 
- `"babel-node": "./node_modules/.bin/babel-node src/services/gateway/index.js",`
+ ```json
+ "babel-node": "./node_modules/.bin/babel-node src/services/gateway/index.js",
+ ```
 
 In `server/src/services/gateway/index.js`:
 - Remove the import of `connectToStorage` (`import { connectToStorage } from './storage'`)
@@ -190,17 +194,17 @@ To facilitate easy communication between services, we need a serializeable way t
  - a failed call with an error, describing the failure
 
 #### Enter Folktale
-We'll use a library called [Folktale](http://folktale.origamitower.com/) which contains lots of helpful stuff.  In particular, [Result](http://folktale.origamitower.com/api/v2.0.0/en/folktale.result.html) is just what we wished for.  It describes a successful or failed call and wraps the result, be it value or error.  It is easily serializeable via `.toJSON()`/`fromJSON()`, so it works well across service boundaries.
+We'll use a library called [Folktale](http://folktale.origamitower.com/) which contains lots of helpful stuff.  In particular, [Result](http://folktale.origamitower.com/api/v2.0.0/en/folktale.result.html) is just what we wished for.  It describes a successful or failed call and wraps the result, be it value or error.  It is easily serializeable via `.toJSON()`/`.fromJSON()`, so it works well across service boundaries.
 
 `npm i --save folktale`
 
-Back to our our new function from above, `_try`.  It executes an asynchronous function, and if successful, wraps and returns the result in `Result.Ok(...)`.  If the call failed, it returns `Result.Error(...)`.
+Back to our our new function from above, `_try`.  It executes an asynchronous function, and if successful, wraps and returns the result in `Result.Ok(...)`.  If the call failed (i.e., an exception is thrown), it returns `Result.Error(...)`.
 
-For an example, check out our `storage-listener.js` above.  The value returned from `await connectToStorage()` is a `Result`.  
+For an example, check out our `storage-listener.js` above.  The value returned from `await connectToStorage()` is a `Result`.
 
-If the call was successful, the `map` handler will execute and pass our DB connection context.  In the handler, we start the Seneca listener, and tell it to use the storage plugin, which defines which patterns the storage service listens for.
+If the `connectToStorage()` call was successful, the `map` handler will execute and pass our DB connection context (the unwrapped value).  In the handler, we start the Seneca listener, and tell it to use the `storage` plugin, which defines which patterns the storage service listens for.
 
-But if the call to `connectToStorage` failed for any reason (maybe `mongod` isn't running), the `orElse` handler is executed with a string describing the error, which is logged, and then the process dies.  This is exactly what we want.
+But if `connectToStorage()` failed for any reason (maybe `mongod` isn't running), the `orElse` handler is executed with a string describing the error, which is logged, and then the process dies.  This is exactly what we want.
 
 So given this new information, an overhaul of `storage/index.js` is in order:
 
@@ -264,7 +268,7 @@ export async function deleteOne(collection : string, id : String) : Object {
 }
 ```
 
-As mentioned in Part #3, Mongo automatically generates an `_id` property on all objects, it's a long, not-so-user-friendly ID that looks odd in URLs.  We'll use the library `shortid` to generate a URL friendly ID on each object we create, referenced by an `id` property.  This also frees us from juggling between GraphQL expecting (requiring, in fact) an `id` property and Mongo's default `_id`.
+As mentioned in Part #3, while Mongo automatically generates an `_id` property on all objects, it's a long, not-so-user-friendly ID that looks odd in URLs.  We'll use the library `shortid` to generate a URL friendly ID on each object we create, referenced by an `id` property.  This also frees us from juggling between GraphQL expecting (requiring, in fact) an `id` property and Mongo's default `_id`.
 
 `npm i --save shortid`
 
@@ -282,19 +286,27 @@ Also run `npm run watch` in `server` to start the `gateway` service.
 
 Now if we run our curl commands from earlier:
 
-`curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "mutation CreateUser($input: UserInput) { createUser(input: $input) { id email firstName lastName } }", "args": { "input": {  "email": "dwight@dundermifflin.com", "firstName": "Dwight", "lastName": "Schrute" } } }'`
+```bash
+curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "mutation CreateUser($input: UserInput) { createUser(input: $input) { id email firstName lastName } }", "args": { "input": {  "email": "dwight@dundermifflin.com", "firstName": "Dwight", "lastName": "Schrute" } } }'
+```
 
 We'll get:
 
-`{"data":{"createUser":{"id":"ry7GUNI4Z","email":"dwight@dundermifflin.com","firstName":"Dwight","lastName":"Schrute"}}}`
+```bash
+{"data":{"createUser":{"id":"ry7GUNI4Z","email":"dwight@dundermifflin.com","firstName":"Dwight","lastName":"Schrute"}}}
+```
 
 Now to fetch (remember to change the ID!):
 
-`curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "query FetchUser($id: ID!) { fetchUser(id: $id) { id email firstName lastName } }", "args": { "id": "ry7GUNI4Z" } }'`
+```bash
+curl -X POST localhost:3000/graphql -H "content-type: application/json" -d '{ "query": "query FetchUser($id: ID!) { fetchUser(id: $id) { id email firstName lastName } }", "args": { "id": "ry7GUNI4Z" } }'
+```
 
 Returns:
 
-`{"data":{"fetchUser":{"id":"ry7GUNI4Z","email":"dwight@dundermifflin.com","firstName":"Dwight","lastName":"Schrute"}}}`
+```bash
+{"data":{"fetchUser":{"id":"ry7GUNI4Z","email":"dwight@dundermifflin.com","firstName":"Dwight","lastName":"Schrute"}}}
+```
 
 Woohoo!  
 
@@ -357,11 +369,11 @@ There's a glaring issue with our architecture right now.  We want each service t
 
 In `server/src/services/storage`:
 
-`npm init -- yes && npm i --save folktale mongodb ramda seneca shortid`
+`npm init --yes && npm i --save folktale mongodb ramda seneca shortid`
 
 This will create `storage/package.json` and add the service's dependencies.  Additionally, we will remove them from `server/package.json` (which we will keep, as it contains all the Babel stuff we don't need to include in the service-specific `package.json` files).
 
-What about our shared/common code in the `bnb-book-util` folder?  We'll take the easy way and add `bnb-book-util` as a local dependency to `storage/package.json`.  But first, we must add (yet another!) `package.json` file in the `bnb-book-util` folder, because `npm` requires it to install it as a dependency in other packages.  To do so, run the following inside the `bnb-book-util` directory:
+What about our shared/common code in the `bnb-book-util` folder?  We'll take the easy way and add `bnb-book-util` as a local dependency to `storage/package.json`.  But first, we must add (yes, another) `package.json` file to the `bnb-book-util` folder, because `npm` requires it to install it as a dependency in other packages.  To do so, run the following inside the `bnb-book-util` directory:
 
 `npm init --yes && npm install folktale`
 
@@ -373,7 +385,7 @@ Then, in `storage`:
 
 Let's also package-ize our `gateway` service.  In `server/src/services/gateway`:
 
-`npm init -- yes && npm i --save folktale body-parser express graphql seneca`
+`npm init --yes && npm i --save folktale body-parser express graphql seneca`
 
 Repeat the addition of `bnb-book-util` as a local dependency (see above).
 
@@ -449,9 +461,9 @@ One last thing: our use of `async/await` requires an npm module named `regenerat
 
 Without these changes, our deployed services will incur a `regeneratorRuntime is not defined` error on startup.
 
-#### Convert `gateway` to a Seneca service
+#### Convert the `gateway` to a Seneca service
 
-Should our `gateway` be a Seneca microservice as well?  I lean toward **yes**, it should due to the following reasons:
+Our `gateway` service should be a Seneca microservice as well, for the following reasons:
  - Consistency: each of our services will have an identical structure (namely the `*-listener/patterns.js` convention)
  - We can further take advantage of the capabilities that Seneca provides automatically (logging, easy changing of communication mechanism, etc.)
  - Decouples our API from our API technology.  If we want to switch from Express to Hapi, it's much easier: simply use the Seneca-Hapi plugin instead of the Seneca-Express plugin.
@@ -508,7 +520,7 @@ import Root from './resolvers'
 export default async function gateway(options) {
 
   this
-  .add({ role: 'gateway', path: 'graphql' }, async (msg, reply) => {
+  .add('role:gateway, path:graphql', async (msg, reply) => {
     const { query, args } = msg.args.body
     const result : Object = await graphql(schema, query, Root, { user: 'Bill' }, args)
     reply(result)
@@ -534,7 +546,11 @@ export default async function gateway(options) {
 }
 ```
 
-Now, we can delete `gateway/index.js`.
+The `gateway-patterns.js` file defines two Seneca patterns via `.add(...)`:
+ - `'role:gateway, path:graphql'` is called by Seneca on a `POST /graphql`.
+ - `'init:gateway'` is called by Seneca at service startup (because of our `.client({ type:'tcp', pin: 'role:gateway' })` line in `storage-listener.js`).  Its handler sends a message via the special `role:web` pin which contains the routes to listen on and contains other configuration.  Seneca-Web uses this message's contents to configure the Express context.
+
+> Now, we can delete `gateway/index.js`.
 
 > If we really wanted to run with this pattern, we could even split our GraphQL logic off entirely into its own service.  But for now, this is maybe a bit of over-architecting, so we'll keep it simple.
 
@@ -561,8 +577,11 @@ Finally, let's alter our `server/package.json` file to make it easy to get our s
 "services": "find src/services/ -type d -maxdepth 1 -mindepth 1 -exec echo '\"cd {}; npm run watch;\"' \\; | xargs ../node_modules/.bin/concurrently || true",
 ```
 
-Then, `npm run services` will start up any service that has a `*-listener.js` file via Concurrently.  So an `npm start` in the top-level directory and an `npm run services` in `server` would have the entire app up and running.
+Then, `npm run services` will start up any service that has a `*-listener.js` file via Concurrently.  So an `npm start` in the `client` directory, and an `npm run services` in `server` would have the entire app up and running, which leads us to a final update of our top-level `package.json`.  Change the `scripts.start` command:
 
+```json
+"start": "./node_modules/.bin/concurrently \"cd client && npm start\" \"cd server && npm run services\""
+```
 
 #### Wrapping up
 
