@@ -439,7 +439,7 @@ rsync -r --exclude=node_modules src/services/$SERVICE build
 rsync -r --exclude=node_modules src/bnb-book-util build/$SERVICE
 
 # build babel-transformed javascript in out/
-./node_modules/.bin/babel build/$SERVICE --out-dir build/$SERVICE
+./node_modules/.bin/babel build/$SERVICE --out-dir build/$SERVICE --source-maps
 
 # update the package.json's dependencies.bnb-book-util path
 ./node_modules/.bin/json -I -f build/$SERVICE/package.json -e 'this.dependencies["bnb-book-util"]="file:./bnb-book-util"'
@@ -450,7 +450,7 @@ This is a very basic bash script which takes a service name as a parameter, and 
  - Validates that the service passed in is non-empty and matches a directory in `src/services`
  - Copies the directory contents into a build folder of the same name
  - Copies the `bnb-book-util` package/directory into the build folder
- - Uses Babel to transpile the ES* to valid javascript, runnable with plain Node.js without Babel
+ - Uses Babel to transpile the ES* to valid javascript, runnable with plain Node.js without Babel.  It also builds [sourcemaps](https://www.html5rocks.com/en/tutorials/developertools/sourcemaps/) for the transpiled javascript.
  - Edits `package.json` (and `package-lock.json`) dependency path for `bnb-book-util`, so that Node doesn't attempt to escape the root of the directory
 
 Now we can run `./scripts/build-scripts.sh storage` and we'll have a deployable `storage` service in `build/storage`.
