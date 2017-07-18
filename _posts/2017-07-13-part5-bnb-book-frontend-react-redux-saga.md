@@ -98,15 +98,15 @@ if (initialLocation) {
 ```
 
 This is much different from our original `index.js`.  Let's go over the changes:
- - We're importing lots more functions; we see the expected stuff from `redux-saga`, `redux-little-router`, etc., but there are a few we haven't seen:
+- We're importing lots more functions; we see the expected stuff from `redux-saga`, `redux-little-router`, etc., but there are a few we haven't seen:
   - `entitiesReducer` will mutate our app's state as it fetches and displays entities (e.g., `Property`s or `Room`s) from the API
   - `rootSaga` will be our base saga, which for now, simply defines what should happen when a route changes
   - `apolloClient` is an Apollo Client object; we're using it as our API proxy, but the only reason we need to import now is to integrate it with our Redux store by calling its `.reducer()` function
   - `routes` is imported from a `./Routes.js` file we will create soon.  It defines each route and the saga that needs to be executed upon navigating to that route
- - We initialize our `redux-little-router` with our `routes` object.
- - We configure our Redux store to hold a state object that has three properties: `app`, `router`, `apollo`.  We'll mainly concern ourselves with `app`, because `router` and `apollo` are used by our router and API.  We're running the Redux middlewares for `redux-little-router` and `redux-saga`.  We're also telling Redux to use the [Redux DevTools](https://chrome.google.com/webstore/detail/redux-devtools/lmhkpmbekcpmknklioeibfkpmmfibljd?hl=en) extension, if available.  We then kick off the `rootSaga` (which simply listens for route-change events and runs the appropriate saga for the new route).
- - The next part is familiar, just rendering the `App` component and setting up hot-reloading.
- - Finally, we dispatch an `initializeCurrentLocation` action -- which comes from `redux-little-router` -- to kick everything off!
+- We initialize our `redux-little-router` with our `routes` object.
+- We configure our Redux store to hold a state object that has three properties: `app`, `router`, `apollo`.  We'll mainly concern ourselves with `app`, because `router` and `apollo` are used by our router and API.  We're running the Redux middlewares for `redux-little-router` and `redux-saga`.  We're also telling Redux to use the [Redux DevTools](https://chrome.google.com/webstore/detail/redux-devtools/lmhkpmbekcpmknklioeibfkpmmfibljd?hl=en) extension, if available.  We then kick off the `rootSaga` (which simply listens for route-change events and runs the appropriate saga for the new route).
+- The next part is familiar, just rendering the `App` component and setting up hot-reloading.
+- Finally, we dispatch an `initializeCurrentLocation` action -- which comes from `redux-little-router` -- to kick everything off!
 
 #### Routes
 Let's define the routes we will expose:
