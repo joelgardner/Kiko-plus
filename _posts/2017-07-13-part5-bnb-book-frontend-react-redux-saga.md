@@ -491,30 +491,73 @@ This one is basically the same as `fetchEntitiesSaga` but without the `batchInde
 
 Whew... that's about enough Saga fun for now!
 
-#### Building our state
+#### And... Action!
 
->If you haven't, please read the Redux documentation.
+One of the main benefits of using `redux-saga` is that it allows all of our actions to be simple objects.  If we were using `redux-thunk` we'd have object actions mixed with asynchronous-callback actions which are tough to test.  Let's define our actions file:
 
-Our initial state is simple:
+`src/Actions/index.js`:
 
-```json
-{
-  "properties": [],
-  "token": null
-}
+```js
+export const fetchEntities = (entityName, apiAction, args = {}, searchParameters = {}) => ({
+  type: 'FETCH_ENTITIES',
+  entityName,
+  apiAction,
+  args,
+  searchParameters
+})
+
+export const fetchEntitiesSuccess = (entityName, entities, batchIndex) => ({
+  type: 'FETCH_ENTITIES_SUCCESS',
+  entityName,
+  entities,
+  batchIndex
+})
+
+export const fetchEntitiesError = (entityName, error, batchIndex) => ({
+  type: 'FETCH_ENTITIES_ERROR',
+  entityName,
+  error,
+  batchIndex
+})
+
+export const fetchEntityDetails = (entityName, apiAction, args = {}) => ({
+  type: 'FETCH_ENTITY_DETAILS',
+  entityName,
+  apiAction,
+  args
+})
+
+export const fetchEntityDetailsSuccess = (entityName, entity, args) => ({
+  type: 'FETCH_ENTITY_DETAILS_SUCCESS',
+  entityName,
+  entity,
+  args
+})
+
+export const fetchEntityDetailsError = (entityName, error) => ({
+  type: 'FETCH_ENTITY_DETAILS_ERROR',
+  entityName,
+  error
+})
 ```
 
-The idea is that when the app initializes, we will have an empty `properties` array and a null token (we assume the user to be anonymous).
+Nice and simple, you can look at each action and see what it relates to and the data tagging along with it.  Later, we'll look at how it's super simple to write unit tests that verify our application logic.
 
-This is a good time to build our reducer.  Add a `reducers` directory to
+#### Constants
 
-#### New API calls
-Right now, all we can do is create and fetch/edit/delete an entity by ID.  These are all useful, but how do we get the ID from the server to the client if we don't know it?  We'll need to add a few more API calls:
- - `listProperties` will return a list of `Property`s
- - `listRooms` will return a list of `Room`s associated with a `Property`
- - `bookRoomByDates` will take a date-range and attempt to reserve the room for the user.
+Let's quickly define `src/Constant.js`, which for now will have a single, lonely value:
 
- This will do for now.
+```js
+export const FETCH_LIMIT = 20
+```
 
- #### GraphQL schema changes
- The above API calls bring up a question of search and pagination.  It'd obviously be nice to be able to search by keyword or (especially) dates and location.  
+#### Components
+
+We've finally arrived to the fun part of an application: the views!  As mentioned earlier, we'll keep each view and its associated files in folder under `Components`.  For example, we'll have a `PropertyList` view and thus, we'll have a folder called `PropertyList` which will contain:
+- `PropertyListContainer.js`
+- `PropertyList.js`
+- `PropertyList.css`
+
+
+#### GraphQL schema changes
+The above API calls bring up a question of search and pagination.  It'd obviously be nice to be able to search by keyword or (especially) dates and location.  
