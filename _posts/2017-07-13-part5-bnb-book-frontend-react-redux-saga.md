@@ -545,7 +545,7 @@ Nice and simple, you can look at each action and see what it relates to and the 
 
 #### Constants
 
-Let's quickly define `src/Constant.js`, which for now will have a single, lonely value:
+Let's quickly define `src/Constants.js`, which for now will have a single, lonely value:
 
 ```js
 export const FETCH_LIMIT = 20
@@ -553,11 +553,14 @@ export const FETCH_LIMIT = 20
 
 #### Components
 
-We've finally arrived to the fun part of an application: the views!  As mentioned earlier, we'll keep each view and its associated files in folder under `Components`.  For example, we'll have a `PropertyList` view and thus, we'll have a folder called `PropertyList` which will contain:
-- `PropertyListContainer.js`
-- `PropertyList.js`
-- `PropertyList.css`
-
+We've finally arrived to the fun part of an application: the views!  As mentioned earlier, we'll keep each view and its associated files in folder under `Components`.  For example, we'll have a `PropertyList` view which will be housed in a structure like:
+```
+- App/
+  - PropertyList/
+    - PropertyListcontainer.js
+    - PropertyList.js
+    - PropertyList.css
+```
 
 #### GraphQL schema changes
 The above API calls bring up a question of search and pagination.  It'd obviously be nice to be able to search by keyword or (especially) dates and location.  
