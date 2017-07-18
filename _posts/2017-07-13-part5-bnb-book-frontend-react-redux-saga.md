@@ -25,6 +25,88 @@ Currently our frontend is pretty sparse.  We've used `create-react-app` to boots
 > Facebook's [Relay](https://github.com/facebook/relay) is a similar library.  It is perhaps a bit more powerful but the learning curve is steeper.  There are many articles online that compare the two.  You can't really go wrong with either, I simply chose Apollo for this post due to its lower barrier of entry.
 
 #### Configure our Redux store
+Our app integrates a few different Redux plugins, so our configuration will be pretty hairy.  Here is the new `src/index.js`:
+
+```js
+import React from 'react'
+import ReactDOM from 'react-dom'
+import App from './Components/App/App'
+import registerServiceWorker from './registerServiceWorker'
+import { createStore, applyMiddleware, combineReducers, compose } from 'redux'
+import { Provider } from 'react-redux'
+import createSagaMiddleware from 'redux-saga'
+import entitiesReducer from './Reducers/Entities'
+import rootSaga from './Sagas/RootSaga'
+import './index.css'
+import { apolloClient } from './Api/ApolloProxy'
+import { routerForBrowser, initializeCurrentLocation } from 'redux-little-router';
+import routes from './Routes'
+
+// initialize our router
+const {
+  reducer     : routerReducer,
+  middleware  : routerMiddleware,
+  enhancer    : routerEnhancer
+} = routerForBrowser({ routes })
+
+// build our store
+const sagaMiddleware = createSagaMiddleware()
+const store = createStore(
+  combineReducers({
+    app     : entitiesReducer,
+    router  : routerReducer,
+    apollo  : apolloClient.reducer()
+  }),
+  {}, // initial state
+  compose(
+    routerEnhancer,
+    applyMiddleware(sagaMiddleware, routerMiddleware, apolloClient.middleware()),
+    (typeof window.__REDUX_DEVTOOLS_EXTENSION__ !== 'undefined') ? window.__REDUX_DEVTOOLS_EXTENSION__() : f => f,
+  )
+);
+
+// kick off rootSaga
+sagaMiddleware.run(rootSaga)
+
+// render app
+ReactDOM.render(
+  <Provider store={store}>
+    <App />
+  </Provider>,
+  document.getElementById('root')
+)
+registerServiceWorker()
+
+// hot-reloading
+if (module.hot) {
+  module.hot.accept('./Components/App/App', () => {
+    const NextApp = require('./Components/App/App').default
+    ReactDOM.render(
+      <Provider store={store}>
+        <NextApp />
+      </Provider>,
+      document.getElementById('root')
+    )
+  })
+}
+
+// bootstrap the router with initial location
+const initialLocation = store.getState().router;
+if (initialLocation) {
+  store.dispatch(initializeCurrentLocation(initialLocation));
+}
+```
+
+This is much different from our original `index.js`.  Let's go over the changes:
+ - We're importing lots more functions; we see the expected stuff from `redux-saga`, `redux-little-router`, etc., but there are a few we haven't seen:
+  - `entitiesReducer` will mutate our app's state as it fetches and displays entities (e.g., `Property`s or `Room`s) from the API
+  - `rootSaga` will be our base saga, which for now, simply defines what should happen when a route changes
+  - `apolloClient` is an Apollo Client object; we're using it as our API proxy, but the only reason we need to import now is to integrate it with our Redux store by calling its `.reducer()` function
+  - `routes` is imported from a `./Routes.js` file we will create soon.  It defines each route and the saga that needs to be executed upon navigating to that route
+ - We initialize our `redux-little-router` with our `routes` object.
+ - We configure our Redux store to hold a state object that has three properties: `app`, `router`, `apollo`.  We'll mainly concern ourselves with `app`, because `router` and `apollo` are used by our router and API.  We're running the Redux middlewares for `redux-little-router` and `redux-saga`.  We're also telling Redux to use the [Redux DevTools](https://chrome.google.com/webstore/detail/redux-devtools/lmhkpmbekcpmknklioeibfkpmmfibljd?hl=en) extension, if available.  We then kick off the `rootSaga` (which simply listens for route-change events and runs the appropriate saga for the new route).
+ - The next part is familiar, just rendering the `App` component and setting up hot-reloading.
+ - Finally, we dispatch an `initializeCurrentLocation` action -- which comes from `redux-little-router` -- to kick everything off!
 
 #### Routes
 Let's define the routes we will expose:
@@ -40,15 +122,15 @@ The last 3 routes will require a user to login to access them.
 #### Directory structure
 We're building a Redux app, so let's add a few folders to `client/src`.  `In client:`
 
-`mkdir src/reducers src/actions src/components src/containers src/sagas`
+`mkdir src/Reducers src/Actions src/Components src/Containers src/Sagas`
 
 Every directory we created, except for `components`, is Redux-specific.  One critique of Redux is that it's very boilerplate heavy.  That can be true ([it doesn't have to be](http://blog.isquaredsoftware.com/2017/05/idiomatic-redux-tao-of-redux-part-1/)).  It's a tradeoff I'm willing to make: we add a little more boilerplate, but gain much more declarative, readable, and... reason-about-able code.
 
- - `reducers` will contain our functions that mutate our application state on actions
- - `actions` will contain our actions/action-creators that describe everything that can happen in our app
- - `containers` will contain our Redux containers, which map application state to component props and callbacks for events
- - `sagas` will contain functions that describe app behavior and perform the side-effects required for our app to work
- - `components` will contain our React components
+ - `Reducers` will contain functions that mutate our application state on actions
+ - `Actions` will contain our actions, which describe everything that can happen in our app
+ - `Containers` will contain our Redux view-containers, which map application state to component props and UI events to actions
+ - `Sagas` will contain functions that describe app behavior by telling a story (hence the name) and performing the side-effects required for our app to work
+ - `Components` will contain our React components
 
 #### Clientside API
 We will use the awesome GraphQL framework [`apollo`](http://dev.apollodata.com/react), which allows us to declaratively specify the data that each component expects and the queries and fragments that retrieve that data.  It actually uses Redux under the hood, and thus will integrate nicely with our setup.  Install it now:
