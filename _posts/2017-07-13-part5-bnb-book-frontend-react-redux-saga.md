@@ -225,11 +225,6 @@ Then we have our `Property` reducer, which takes the *current state* and an *act
 - On `FETCH_ENTITIES_SUCCESS`, we set the `batch` by the `batchIndex`. `batchIndex` is required because it is possible we have two requests going at once, and if request A takes longer than request B, we want to maintain the correct order, so we must make sure the batches from request B are slotted into the right index in our `batches` array (rather than simply `push()`ing onto the end).
 - On `FETCH_ENTITY_DETAILS_SUCCESS`, we simply set `selectedItem` to the result from our API call.
 
-#### What the hell is a Saga?
-If you're asking this question, don't fret: a Saga is merely a way to describe business logic in a declarative way.  
-
-TODO
-
 #### Clientside API
 As mentioned above, we'll use the [`apollo`](http://dev.apollodata.com/react) framework to make API requests.  It allows us to do things like define re-useable GraphQL fragments, so we can declaratively specify the data that each request expects.  As we saw earlier, it uses Redux under the hood, and thus we simply integrated with our own Redux store.  Install it now:
 
@@ -337,7 +332,164 @@ export const Room = {
 }
 ```
 
-As you can see, `ApolloProxy.js` contains two methods -- `listProperties` and `fetchProperty` -- each of which send a GraphQL query of the same name to our server.  They both use the query fragments we've defined in `Fragments.js`.
+As you can see, `ApolloProxy.js` contains two methods -- `listProperties` and `fetchProperty` -- each of which send a GraphQL query of the same name to our server.  They both use the query fragments we've defined in `Fragments.js`, which allows us to not litter our API with multiple copies of lists of attributes for each API call.
+
+#### What the hell is a Saga?
+If you're asking this question, don't fret: a Saga is merely a way to describe business logic in a declarative way.  
+
+Let's define our first saga: the `rootSaga`.  In `src/Sagas`, add `RootSaga.js`:
+
+```js
+import { all, takeLatest } from 'redux-saga/effects'
+import navigationSaga from './NavigationSaga'
+
+export default function* rootSaga() {
+  yield takeLatest('ROUTER_LOCATION_CHANGED', navigationSaga)
+}
+```
+
+It's very simple.  We are simply listening for the latest `ROUTER_LOCATION_CHANGED` action (which is triggered by our router), and when we see it, we execute the `navigationSaga`, which is defined in `NavigationSaga.js`:
+
+```js
+import { call } from 'redux-saga/effects'
+import invalidRouteSaga from './RouteSagas/InvalidRouteSaga'
+
+export default function* navigationSaga(action) {
+  const location = action.payload
+  const saga = location.result.saga || invalidRouteSaga
+  yield call(saga, location)
+}
+```
+
+This Navigation Saga takes the payload from the `ROUTER_LOCATION_CHANGED` message, and executes another saga.  Where does this magic "other" saga come from?  Back in `Routes.js`, we defined a `saga` property for our first two routes.  That's the saga being executed here.  Those two sagas were `homeSaga.js` and `propertyDetailsSaga`, which we will define in `Sagas/RouteSagas`:
+
+`Sagas/RouteSagas/HomeSaga.js`:
+
+```js
+import { all, put, takeEvery, select } from 'redux-saga/effects'
+import { fetchEntities } from '../../Actions'
+import fetchEntitiesSaga from '../FetchEntitiesSaga'
+
+const TYPE_NAME = 'Property'
+const API_ACTION = 'listProperties'
+
+export default function* homeSaga(location) {
+  yield takeEvery('FETCH_ENTITIES', fetchEntitiesSaga(TYPE_NAME, API_ACTION))
+  const showing = yield select(s => s.app.Property.get('showing'))
+  if (showing === -1) {
+    yield all([
+      put(fetchEntities(TYPE_NAME, API_ACTION)),
+      put(fetchEntities(TYPE_NAME, API_ACTION))
+    ])
+  }
+}
+```
+
+This one gets a little more complex.  Remember that we're using an infinitely scrollable list of Properties on this route.  When we scroll to the bottom, we must do both of the following:
+- Display the next batch of properties immediately
+- Prefetch the next batch of properties
+
+To fulfill these requirements, we must fetch two batches on page-load: the first of which will be displayed immediately, and the second will be displayed when the user scrolls to the bottom.  This is why we defined `showing` to be `-1` in our initial state:  each time we trigger a `FETCH_ENTITIES` action, `showing` is incremented by our reducer, but we only want to show the first batch of the initial two requests.  So if we started it at `0`, *both* initial batches would be displayed.  This "stutter-step" allows us to provide an illusion of very fast loading for the user.
+
+So back to this saga, it is doing in code what we just described: if this is the initial page-load (i.e., `showing` is `-1`), it triggers two `fetchEntities` actions.  It also listens for *every* instance of `FETCH_ENTITIES`, and executes yet another saga: the `fetchEntitiesSaga`.
+
+Create `Sagas/FetchEntitiesSaga.js`:
+
+```js
+import { call, put, select  } from 'redux-saga/effects'
+import * as api from '../Api/ApolloProxy'
+import { FETCH_LIMIT } from '../Constants'
+import {
+  fetchEntitiesSuccess,
+  fetchEntitiesError
+} from '../Actions'
+import R from 'ramda'
+
+export default function fetchEntitiesSaga(entityName, apiAction) {
+  return function* (action) {
+    const batchIndex = yield select(st => st.app[entityName].get('showing'))
+    try {
+      const result = yield call(
+        api[apiAction],
+        action.args,
+        R.merge(action.searchParameters, { skip: FETCH_LIMIT * batchIndex })
+      )
+      yield put(fetchEntitiesSuccess(
+        action.entityName,
+        result.data[apiAction],
+        batchIndex
+      ))
+    }
+    catch (e) {
+      yield put(fetchEntitiesError(
+        action.entityName,
+        e.message,
+        batchIndex
+      ))
+    }
+  }
+}
+```
+
+This Saga takes care of the logic for (you guessed it) fetching entities.  The actual generator function is wrapped in a normal function that provides the entity name and corresponding API action to call (in this case, `Property` and `listProperties`, respectively).
+
+The logic is pretty simple.  It reads from current app state `showing`, which will be the `batchIndex` for the subsequent request.  It then tries calling the API method with the appropriate parameters, but with a modification to `searchParameters`: it defines `skip` so that the server returns the correct batch of entities.
+
+If the call was successful, we trigger a `FETCH_ENTITIES_SUCCESS` action that contains the resulting list and the `batchIndex` (from above, we know that the reducer will set the entities to app state at this `batchIndex`).
+
+If the call fails, we trigger a `FETCH_ENTITIES_ERROR` action, which would do something like display a big red banner.
+
+Let's move on to the next route, `/property/:id`.  Just like we defined a Saga for the home route, we'll define a `PropertyDetailsSaga` for this one.
+
+`Sagas/RouteSagas/PropertyDetailsSaga.js`:
+
+```js
+import { put, takeLatest } from 'redux-saga/effects'
+import fetchEntityDetailsSaga from '../FetchEntityDetailsSaga'
+import { fetchEntityDetails } from '../../Actions'
+
+export default function* propertyDetailsSaga(location) {
+  yield takeLatest('FETCH_ENTITY_DETAILS', fetchEntityDetailsSaga('Property', 'fetchProperty'))
+  yield put(fetchEntityDetails('Property', 'fetchProperty', { id: location.params.id }))
+}
+```
+
+Another simple one.  Listen for the latest `FETCH_ENTITY_DETAILS`, and trigger a `fetchEntityDetailsSaga`:
+
+`Sagas/FetchEntityDetailsSaga.js`:
+
+```js
+import { call, put  } from 'redux-saga/effects'
+import * as api from '../Api/ApolloProxy'
+import {
+  fetchEntityDetailsSuccess,
+  fetchEntityDetailsError
+} from '../Actions'
+
+export default function fetchEntityDetailsSaga(entityName, apiAction) {
+  return function* (action) {
+    try {
+      const result = yield call(api[apiAction], action.args)
+      yield put(fetchEntityDetailsSuccess(
+        action.entityName,
+        result.data[apiAction],
+        action.args
+      ))
+    }
+    catch (e) {
+      yield put(fetchEntityDetailsError(
+        action.entityName,
+        e.message,
+        action.args
+      ))
+    }
+  }
+}
+```
+
+This one is basically the same as `fetchEntitiesSaga` but without the `batchIndex` logic.
+
+Whew... that's about enough Saga fun for now!
 
 #### Building our state
 
