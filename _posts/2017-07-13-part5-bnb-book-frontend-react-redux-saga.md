@@ -433,7 +433,7 @@ export default function fetchEntitiesSaga(entityName, apiAction) {
 
 This Saga takes care of the logic for (you guessed it) fetching entities.  The actual generator function is wrapped in a normal function that provides the entity name and corresponding API action to call (in this case, `Property` and `listProperties`, respectively).
 
-The logic is pretty simple.  It reads from current app state `showing`, which will be the `batchIndex` for the subsequent request.  It then tries calling the API method with the appropriate parameters, but with a modification to `searchParameters`: it defines `skip` so that the server returns the correct batch of entities.
+The logic is pretty simple.  It reads `showing` from current app state, and assigns its value to `batchIndex` for the subsequent request.  It then tries calling the API method with the appropriate parameters, but with a modification to `searchParameters`: it defines `skip` so that the server returns the correct batch of entities.
 
 If the call was successful, we trigger a `FETCH_ENTITIES_SUCCESS` action that contains the resulting list and the `batchIndex` (from above, we know that the reducer will set the entities to app state at this `batchIndex`).
 
