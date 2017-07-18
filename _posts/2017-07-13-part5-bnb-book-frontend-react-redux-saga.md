@@ -101,7 +101,7 @@ This is much different from our original `index.js`.  Let's go over the changes:
 - We're importing lots more functions; we see the expected stuff from `redux-saga`, `redux-little-router`, etc., but there are a few we haven't seen:
   - `entitiesReducer` will mutate our app's state as it fetches and displays entities (e.g., `Property`s or `Room`s) from the API
   - `rootSaga` will be our base saga, which for now, simply defines what should happen when a route changes
-  - `apolloClient` is an Apollo Client object; we're using it as our API proxy, but the only reason we need to import now is to integrate it with our Redux store by calling its `.reducer()` function
+  - `apolloClient` is an Apollo [Client](http://dev.apollodata.com/core/apollo-client-api.html#apollo-client) object; we're using it as our API proxy, but the only reason we need to import now is to integrate it with our Redux store by calling its `.reducer()` function
   - `routes` is imported from a `./Routes.js` file we will create soon.  It defines each route and the saga that needs to be executed upon navigating to that route
 - We initialize our `redux-little-router` with our `routes` object.
 - We configure our Redux store to hold a state object that has three properties: `app`, `router`, `apollo`.  We'll mainly concern ourselves with `app`, because `router` and `apollo` are used by our router and API.  We're running the Redux middlewares for `redux-little-router` and `redux-saga`.  We're also telling Redux to use the [Redux DevTools](https://chrome.google.com/webstore/detail/redux-devtools/lmhkpmbekcpmknklioeibfkpmmfibljd?hl=en) extension, if available.  We then kick off the `rootSaga` (which simply listens for route-change events and runs the appropriate saga for the new route).
@@ -110,14 +110,48 @@ This is much different from our original `index.js`.  Let's go over the changes:
 
 #### Routes
 Let's define the routes we will expose:
- - `/` will display a list of properties
- - `/property/:propertyId` will display a list of the property's rooms in a grid view.  Each room will be represented by an image, a short description, and the price per night.
- - `/room/:roomId` will display the details of a property's room: images and a description.  It will also allow a user to book the room for a specified date range.
- - `/manage` will display an "owner's dashboard", allowing property managers to add properties, rooms, and view bookings.
- - `/manage/:propertyId` will allow a property manager to edit property details.
- - `/manage/room/:roomId` will allow a property manager to edit room details.
+- `/` will display a list of properties
+- `/property/:propertyId` will display a list of the property's rooms in a grid view.  Each room will be represented by an image, a short description, and the price per night.
+- `/room/:roomId` will display the details of a property's room: images and a description.  It will also allow a user to book the room for a specified date range.
+- `/manage` will display an "owner's dashboard", allowing property managers to add properties, rooms, and view bookings.
+- `/manage/:propertyId` will allow a property manager to edit property details.
+- `/manage/room/:roomId` will allow a property manager to edit room details.
 
 The last 3 routes will require a user to login to access them.
+
+Let's create our `src/Routes.js` file:
+
+```js
+import homeSaga from './Sagas/RouteSagas/HomeSaga'
+import propertyDetailsSaga from './Sagas/RouteSagas/PropertyDetailsSaga'
+
+const routes = {
+  '/': {
+    title: 'Properties',
+    saga: homeSaga
+  },
+  '/property/:id' : {
+    title: 'Property Details',
+    saga: propertyDetailsSaga
+  },
+  '/room/:id': {
+    title: 'Room details'
+  },
+  '/manage': {
+    title: 'Manage Properties',
+    '/:id': {
+      title: 'Manage Property'
+    },
+    '/room/:id': {
+      title: 'Manage Room'
+    }
+  }
+}
+
+export default routes
+```
+
+Here we're importing two sagas: the `homeSaga` and `propertyDetailsSaga`.  We'll import more, but for now we'll concentrate on the `/` and `/property/:id` routes.  The exported object is a simple map from the route to an object that is attached to the `ROUTER_LOCATION_CHANGED` action fired by `redux-little-router` on a route change.  There's nothing special about the keys (e.g., `title`, `saga`) inside each object, save for the ones that start with `/`, as they signify a nested route.  So, the `/manage` route also has two nested routes: `/:id` and `/room/:id`, which mean `/manage/:id` will be where a manager updates a `Property`, and `/manage/room/:id` will be where a manager updates a `Room`.
 
 #### Directory structure
 We're building a Redux app, so let's add a few folders to `client/src`.  `In client:`
