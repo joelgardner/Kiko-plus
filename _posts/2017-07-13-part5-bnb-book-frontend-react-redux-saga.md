@@ -554,6 +554,7 @@ export const FETCH_LIMIT = 20
 #### Components
 
 We've finally arrived to the fun part of an application: the views!  As mentioned earlier, we'll keep each view and its associated files in folder under `Components`.  For example, we'll have a `PropertyList` view which will be housed in a structure like:
+
 ```
 - App/
   - PropertyList/
