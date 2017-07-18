@@ -18,7 +18,7 @@ Currently our frontend is pretty sparse.  We've used `create-react-app` to boots
  - [redux-saga](https://github.com/redux-saga/redux-saga): a Redux middleware that facilitates side-effects (such as AJAX requests) in an easy-to-read, testable, declarative way.  It removes us from callback hell and nicely describes what is happening when actions are triggered by the user (or internally by the app).
  - [redux-little-router](https://github.com/FormidableLabs/redux-little-router): another Redux middleware that treats the browser URL as state, and as such, is accessible via the Redux store's state tree.
  - [apollo-client](https://github.com/apollographql/apollo-client): a wonderful client-side GraphQL framework that provides flexible usage of queries/mutations, and best of all, it uses Redux state to cache normalized responses so we don't have to worry about re-fetching data we've already fetched.  Below, you'll see what I mean.
- - [immutable](https://facebook.github.io/immutable-js): yet another Facebook library that provides Clojure-like data-structures to wrap javascript's regular Array and Map objects.  Each Immutable object will track its changes and return a new reference.  This helps React and Redux determine whether or not to re-render components.  Admittedly, for such a simple app, it's a bit overkill.  But I wanted to demonstrate its utility.
+ - [immutable](https://facebook.github.io/immutable-js): yet another Facebook library that provides Clojure-like data-structures to wrap javascript's regular Array and Map objects.  Each Immutable object will track its changes and return a new reference if something actually changed.  This helps React and Redux determine whether or not to re-render components.  Admittedly, for such a simple app, it's a bit overkill.  But I wanted to demonstrate its utility.
 
 > Note, we're actually *not* going to use [`react-apollo`](https://github.com/apollographql/react-apollo), the React bindings for the Apollo framework.  The reason is that I prefer to keep my React views very thin: they shouldn't care where their data came from, they should only be concerned with displaying it.  Still, check out the bindings and how they work, because they're very interesting way to fetch/mutate data, and you may actually prefer a "fatter" view.
 
@@ -102,7 +102,7 @@ This is much different from our original `index.js`.  Let's go over the changes:
   - `entitiesReducer` will mutate our app's state as it fetches and displays entities (e.g., `Property`s or `Room`s) from the API
   - `rootSaga` will be our base saga, which for now, simply defines what should happen when a route changes
   - `apolloClient` is an Apollo [Client](http://dev.apollodata.com/core/apollo-client-api.html#apollo-client) object; we're using it as our API proxy, but the only reason we need to import now is to integrate it with our Redux store by calling its `.reducer()` function
-  - `routes` is imported from a `./Routes.js` file we will create soon.  It defines each route and the saga that needs to be executed upon navigating to that route
+  - `routes` is imported from a `./Routes.js` file we will soon create.  It defines each route and the saga that needs to be executed upon navigating to that route
 - We initialize our `redux-little-router` with our `routes` object.
 - We configure our Redux store to hold a state object that has three properties: `app`, `router`, `apollo`.  We'll mainly concern ourselves with `app`, because `router` and `apollo` are used by our router and API.  We're running the Redux middlewares for `redux-little-router` and `redux-saga`.  We're also telling Redux to use the [Redux DevTools](https://chrome.google.com/webstore/detail/redux-devtools/lmhkpmbekcpmknklioeibfkpmmfibljd?hl=en) extension, if available.  We then kick off the `rootSaga` (which simply listens for route-change events and runs the appropriate saga for the new route).
 - The next part is familiar, just rendering the `App` component and setting up hot-reloading.
@@ -111,11 +111,11 @@ This is much different from our original `index.js`.  Let's go over the changes:
 #### Routes
 Let's define the routes we will expose:
 - `/` will display a list of properties
-- `/property/:propertyId` will display a list of the property's rooms in a grid view.  Each room will be represented by an image, a short description, and the price per night.
-- `/room/:roomId` will display the details of a property's room: images and a description.  It will also allow a user to book the room for a specified date range.
+- `/property/:id` will display a list of the property's rooms in a grid view.  Each room will be represented by an image, a short description, and the price per night.
+- `/room/:id` will display the details of a property's room: images and a description.  It will also allow a user to book the room for a specified date range.
 - `/manage` will display an "owner's dashboard", allowing property managers to add properties, rooms, and view bookings.
-- `/manage/:propertyId` will allow a property manager to edit property details.
-- `/manage/room/:roomId` will allow a property manager to edit room details.
+- `/manage/:id` will allow a property manager to edit property details.
+- `/manage/room/:id` will allow a property manager to edit room details.
 
 The last 3 routes will require a user to login to access them.
 
@@ -151,20 +151,23 @@ const routes = {
 export default routes
 ```
 
-Here we're importing two sagas: the `homeSaga` and `propertyDetailsSaga`.  We'll import more, but for now we'll concentrate on the `/` and `/property/:id` routes.  The exported object is a simple map from the route to an object that is attached to the `ROUTER_LOCATION_CHANGED` action fired by `redux-little-router` on a route change.  There's nothing special about the keys (e.g., `title`, `saga`) inside each object, save for the ones that start with `/`, as they signify a nested route.  So, the `/manage` route also has two nested routes: `/:id` and `/room/:id`, which mean `/manage/:id` will be where a manager updates a `Property`, and `/manage/room/:id` will be where a manager updates a `Room`.
+Here we're importing two sagas: the `homeSaga` and `propertyDetailsSaga`.  We'll import more, but for now we'll concentrate on the `/` and `/property/:id` routes.  
+
+The exported object is a simple map from the route to an object that is attached to the `ROUTER_LOCATION_CHANGED` action fired by `redux-little-router` on a route change.  
+
+There's nothing special about the keys (e.g., `title`, `saga`) inside each object, save for the ones that start with `/`, as they signify a nested route.  The `/manage` route has two nested routes: `/:id` and `/room/:id`, which mean `/manage/:id` will be where a manager updates a `Property`, and `/manage/room/:id` will be where a manager updates a `Room`.
 
 #### Directory structure
-Let's add a few folders to `client/src`.  `In client:`
+Let's add a few folders to `client/src`.  In `client:`
 
-`mkdir src/Reducers src/Actions src/Components src/Containers src/Sagas`
+`mkdir src/Reducers src/Actions src/Components src/Sagas`
 
-Every directory we created, except for `components`, is Redux-specific.  One critique of Redux is that it's very boilerplate heavy.  That can be true ([it doesn't have to be](http://blog.isquaredsoftware.com/2017/05/idiomatic-redux-tao-of-redux-part-1/)).  It's a tradeoff I'm willing to make: we add a little more boilerplate, but gain much more declarative, readable, and... reason-about-able code.
+Every directory we created, except for `Components`, is Redux-specific.  One critique of Redux is that it's very boilerplate heavy.  That can be true ([it doesn't have to be](http://blog.isquaredsoftware.com/2017/05/idiomatic-redux-tao-of-redux-part-1/)).  It's a tradeoff I'm willing to make: we add a little more boilerplate, but gain much more declarative, readable, and... reason-about-able code.
 
-- `Reducers` will contain functions that mutate our application state on actions
+- `Reducers` will contain functions that mutate our application state based on triggered actions
 - `Actions` will contain our actions, which describe everything that can happen in our app
-- `Containers` will contain our Redux view-containers, which map application state to component props and UI events to actions
-- `Sagas` will contain functions that describe app behavior by telling a story (hence the name) and performing the side-effects required for our app to work
-- `Components` will contain our React components
+- `Components` will contain our Redux view-containers which map application state to component props and UI events to actions.  It will also hold our React components.  Each component-group will live in its own directory, e.g., `Components/PropertyList` will contain both `PropertyListContainer.js` and `PropertyList.js`
+- `Sagas` will contain functions that describe app business logic and performing the side-effects required for our app to work
 
 #### The Reducer
 In our `Reducer` folder, let's add a file called `Entities.js`:
@@ -210,16 +213,16 @@ export default combineReducers({
 })
 ```
 
-This file defines an `initialState` object that is actually an `immutable` data-structure.  Let's go over the object's properties:
+This file defines an `initialState` object that is an `immutable` data-structure.  Let's go over the object's properties:
 - `selectedItem` will point to the `Property` object used for the `/property/:id` route.  It's initial value is `null`.
-- `showing` is a piece of metadata that determines how many batches of properties to display on the `/` (home) route, which will be infinitely-scrollable, where we pre-fetch the next batch of properties each time the user scrolls to the bottom.  More on this later (including why the initial value is -1)
-- `batches` is an empty Immutable.List that will contain other `List`s of `properties`.  A `PropertyList` component will display the properties.
+- `showing` is a piece of metadata that determines how many batches of properties to display on the `/` (home) route, which will be infinitely-scrollable, where we pre-fetch the next batch of properties each time the user scrolls to the bottom.  More on this later (including why the initial value is `-1`)
+- `batches` is an empty Immutable.List that will contain other Immutable.Lists of `properties`.  A `PropertyList` component will display the properties.
 - `args` is an empty Immutable.Map that will hold any values used to fetch an item.
 - `searchParameters` is an Immutable.Map that will determine things like sort order, search string, number of items to fetch, and how many to skip (i.e., an offset).  This is important for our infinite scrolling (or any pagination control).
 
-Then we have our `Property` reducer, which takes a the *current state* and an *action*, and returns the *new state*.
-- On `FETCH_ENTITIES`, we increase `showing` by 1 and update our `args` and `searchParameters` (which are passed in by our Saga as you will see).
-- On `FETCH_ENTITIES_SUCCESS`, we set the `batch` by the `batchIndex`. `batchIndex` is required because it is possible we have two requests going at once, and if request A takes longer than request B, we want to maintain the correct order, so we must make sure the batches from request B are slotted into the right index in our `batches` array.
+Then we have our `Property` reducer, which takes the *current state* and an *action*, and returns the *new state*.
+- On `FETCH_ENTITIES`, we increment `showing` and update our `args` and `searchParameters` (which are passed in by our Saga as you will see).
+- On `FETCH_ENTITIES_SUCCESS`, we set the `batch` by the `batchIndex`. `batchIndex` is required because it is possible we have two requests going at once, and if request A takes longer than request B, we want to maintain the correct order, so we must make sure the batches from request B are slotted into the right index in our `batches` array (rather than simply `push()`ing onto the end).
 - On `FETCH_ENTITY_DETAILS_SUCCESS`, we simply set `selectedItem` to the result from our API call.
 
 #### What the hell is a Saga?
@@ -228,17 +231,113 @@ If you're asking this question, don't fret: a Saga is merely a way to describe b
 TODO
 
 #### Clientside API
-We will use the awesome GraphQL framework [`apollo`](http://dev.apollodata.com/react), which allows us to declaratively specify the data that each component expects and the queries and fragments that retrieve that data.  It actually uses Redux under the hood, and thus will integrate nicely with our setup.  Install it now:
+As mentioned above, we'll use the [`apollo`](http://dev.apollodata.com/react) framework to make API requests.  It allows us to do things like define re-useable GraphQL fragments, so we can declaratively specify the data that each request expects.  As we saw earlier, it uses Redux under the hood, and thus we simply integrated with our own Redux store.  Install it now:
 
-`npm i --save apollo-client graphql-tag`
+`npm i --save apollo-client `
 
-We'll also install `graphql-anywhere` and `prop-types`:
+We'll also install `graphql-tag` which allows us to represent GraphQL queries as interpolated strings:
 
-`npm i --save graphql-anywhere prop-types`
+`npm i --save graphql-tag`
 
-Let's add our initial call to retrieve a list of properties from the server.
+Let's add our initial call to retrieve a list of properties from the server.  We'll create an `Api` folder and it will contain two files:
+
+`src/Api/ApolloProxy.js`:
+
+```js
+import ApolloClient, { createNetworkInterface } from 'apollo-client'
+import gql from 'graphql-tag'
+import * as Fragments from './Fragments'
+
+/**
+  The API wraps an Apollo client, which provides query/mutation execution
+  as well as fragment caching.
+*/
+export const apolloClient = new ApolloClient({
+  networkInterface: createNetworkInterface({ uri: 'http://localhost:3000/graphql' })
+})
+
+/**
+  @param {Object} args - Map of Property attribute names to values.
+  @returns {Promise<Property>} Uses Apollo to fulfill fetchProperty query.
+*/
+export const fetchProperty = ({ id }) => apolloClient.query({
+  query: gql`
+    query FetchProperty($id: ID!) {
+      fetchProperty(id: $id) {
+        ... PropertyAttributes
+        rooms {
+          ... RoomAttributes
+        }
+      }
+    }
+    ${Fragments.Property.attributes}
+    ${Fragments.Room.attributes}
+  `,
+  variables: {
+    id
+  }
+})
 
 
+/**
+  @param {Object} args - Map of Property attribute names to values.
+  @param {Object} search - Map of search parameters.
+  @returns {Promise<List<Property>>} Uses Apollo to fulfill listProperties query.
+*/
+export const listProperties = (args, search) => apolloClient.query({
+  query: gql`
+    query ListProperties($args: PropertyInput, $search: SearchParameters) {
+      listProperties(args: $args, search: $search) {
+        ... PropertyAttributes
+      }
+    }
+    ${Fragments.Property.attributes}
+  `,
+  variables: {
+    args,
+    search
+  }
+})
+
+```
+
+`src/Api/Fragments.js`:
+
+```js
+import gql from 'graphql-tag'
+
+export const Property = {
+  attributes: gql`
+    fragment PropertyAttributes on Property {
+      id
+      street1
+      street2
+      city
+      state
+    }
+  `,
+  rooms: gql`
+    fragment PropertyRooms on Property {
+      rooms {
+        ... RoomAttributes
+      }
+    }
+  `
+}
+
+export const Room = {
+  attributes: gql`
+    fragment RoomAttributes on Room {
+      id
+      name
+      price
+      description
+    }
+  `
+}
+```
+
+As you can see, `ApolloProxy.js` contains two methods -- `listProperties` and `fetchProperty` -- each of which send a GraphQL query of the same name to our server.  They both use the query fragments we've defined in `Fragments.js`.
 
 #### Building our state
 
