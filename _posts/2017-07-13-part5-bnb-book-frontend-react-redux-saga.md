@@ -154,17 +154,78 @@ export default routes
 Here we're importing two sagas: the `homeSaga` and `propertyDetailsSaga`.  We'll import more, but for now we'll concentrate on the `/` and `/property/:id` routes.  The exported object is a simple map from the route to an object that is attached to the `ROUTER_LOCATION_CHANGED` action fired by `redux-little-router` on a route change.  There's nothing special about the keys (e.g., `title`, `saga`) inside each object, save for the ones that start with `/`, as they signify a nested route.  So, the `/manage` route also has two nested routes: `/:id` and `/room/:id`, which mean `/manage/:id` will be where a manager updates a `Property`, and `/manage/room/:id` will be where a manager updates a `Room`.
 
 #### Directory structure
-We're building a Redux app, so let's add a few folders to `client/src`.  `In client:`
+Let's add a few folders to `client/src`.  `In client:`
 
 `mkdir src/Reducers src/Actions src/Components src/Containers src/Sagas`
 
 Every directory we created, except for `components`, is Redux-specific.  One critique of Redux is that it's very boilerplate heavy.  That can be true ([it doesn't have to be](http://blog.isquaredsoftware.com/2017/05/idiomatic-redux-tao-of-redux-part-1/)).  It's a tradeoff I'm willing to make: we add a little more boilerplate, but gain much more declarative, readable, and... reason-about-able code.
 
- - `Reducers` will contain functions that mutate our application state on actions
- - `Actions` will contain our actions, which describe everything that can happen in our app
- - `Containers` will contain our Redux view-containers, which map application state to component props and UI events to actions
- - `Sagas` will contain functions that describe app behavior by telling a story (hence the name) and performing the side-effects required for our app to work
- - `Components` will contain our React components
+- `Reducers` will contain functions that mutate our application state on actions
+- `Actions` will contain our actions, which describe everything that can happen in our app
+- `Containers` will contain our Redux view-containers, which map application state to component props and UI events to actions
+- `Sagas` will contain functions that describe app behavior by telling a story (hence the name) and performing the side-effects required for our app to work
+- `Components` will contain our React components
+
+#### The Reducer
+In our `Reducer` folder, let's add a file called `Entities.js`:
+
+```js
+import { combineReducers } from 'redux'
+import { List, Map } from 'immutable'
+import { FETCH_LIMIT } from '../Constants'
+
+const initialPropertyState = Map({
+  selectedItem: null,
+  showing: -1,
+  batches: List(),
+  args: Map(),
+  searchParameters: Map({
+    sortKey: 'id',
+    sortAsc: true,
+    searchText: '',
+    first: FETCH_LIMIT,
+    skip: 0
+  })
+})
+
+function Property(state = initialPropertyState, action) {
+  switch(action.type) {
+    case 'FETCH_ENTITIES':
+      return state.withMutations(st => {
+        st.update('showing', showing => showing + 1)
+          .update('searchParameters', searchParameters => searchParameters.merge(action.searchParameters))
+          .update('args', args => args.merge(action.args))
+      })
+    case 'FETCH_ENTITIES_SUCCESS':
+      return state.update('batches', batches => batches.set(action.batchIndex, List(action.entities)))
+    case 'FETCH_ENTITY_DETAILS_SUCCESS':
+      return state.set('selectedItem', Map(action.entity))
+    default:
+      return state
+  }
+}
+
+export default combineReducers({
+  Property
+})
+```
+
+This file defines an `initialState` object that is actually an `immutable` data-structure.  Let's go over the object's properties:
+- `selectedItem` will point to the `Property` object used for the `/property/:id` route.  It's initial value is `null`.
+- `showing` is a piece of metadata that determines how many batches of properties to display on the `/` (home) route, which will be infinitely-scrollable, where we pre-fetch the next batch of properties each time the user scrolls to the bottom.  More on this later (including why the initial value is -1)
+- `batches` is an empty Immutable.List that will contain other `List`s of `properties`.  A `PropertyList` component will display the properties.
+- `args` is an empty Immutable.Map that will hold any values used to fetch an item.
+- `searchParameters` is an Immutable.Map that will determine things like sort order, search string, number of items to fetch, and how many to skip (i.e., an offset).  This is important for our infinite scrolling (or any pagination control).
+
+Then we have our `Property` reducer, which takes a the *current state* and an *action*, and returns the *new state*.
+- On `FETCH_ENTITIES`, we increase `showing` by 1 and update our `args` and `searchParameters` (which are passed in by our Saga as you will see).
+- On `FETCH_ENTITIES_SUCCESS`, we set the `batch` by the `batchIndex`. `batchIndex` is required because it is possible we have two requests going at once, and if request A takes longer than request B, we want to maintain the correct order, so we must make sure the batches from request B are slotted into the right index in our `batches` array.
+- On `FETCH_ENTITY_DETAILS_SUCCESS`, we simply set `selectedItem` to the result from our API call.
+
+#### What the hell is a Saga?
+If you're asking this question, don't fret: a Saga is merely a way to describe business logic in a declarative way.  
+
+TODO
 
 #### Clientside API
 We will use the awesome GraphQL framework [`apollo`](http://dev.apollodata.com/react), which allows us to declaratively specify the data that each component expects and the queries and fragments that retrieve that data.  It actually uses Redux under the hood, and thus will integrate nicely with our setup.  Install it now:
