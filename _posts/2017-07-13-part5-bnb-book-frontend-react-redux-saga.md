@@ -174,21 +174,21 @@ In our `Reducer` folder, let's add a file called `Entities.js`:
 
 ```js
 import { combineReducers } from 'redux'
-import { List, Map } from 'immutable'
+import { List, Map, fromJS } from 'immutable'
 import { FETCH_LIMIT } from '../Constants'
 
-const initialPropertyState = Map({
-  selectedItem: null,
+const initialPropertyState = fromJS({
+  selectedItem: {},
   showing: -1,
-  batches: List(),
-  args: Map(),
-  searchParameters: Map({
+  batches: [],
+  args: {},
+  searchParameters: {
     sortKey: 'id',
     sortAsc: true,
     searchText: '',
     first: FETCH_LIMIT,
     skip: 0
-  })
+  }
 })
 
 function Property(state = initialPropertyState, action) {
@@ -213,12 +213,12 @@ export default combineReducers({
 })
 ```
 
-This file defines an `initialState` object that is an `immutable` data-structure.  Let's go over the object's properties:
+This file defines an `initialState` object that is an `immutable` data-structure, as we can see from the `fromJS`.  Let's go over the object's properties:
 - `selectedItem` will point to the `Property` object used for the `/property/:id` route.  It's initial value is `null`.
 - `showing` is a piece of metadata that determines how many batches of properties to display on the `/` (home) route, which will be infinitely-scrollable, where we pre-fetch the next batch of properties each time the user scrolls to the bottom.  More on this later (including why the initial value is `-1`)
-- `batches` is an empty Immutable.List that will contain other Immutable.Lists of `properties`.  A `PropertyList` component will display the properties.
-- `args` is an empty Immutable.Map that will hold any values used to fetch an item.
-- `searchParameters` is an Immutable.Map that will determine things like sort order, search string, number of items to fetch, and how many to skip (i.e., an offset).  This is important for our infinite scrolling (or any pagination control).
+- `batches` is an empty array that will contain other arrays of `properties`.  A `PropertyList` component will display the properties.
+- `args` is an empty map that will hold any values used to fetch an item.
+- `searchParameters` is a map that will determine things like sort order, search string, number of items to fetch, and how many to skip (i.e., an offset).  This is important for our infinite scrolling (or any pagination control).
 
 Then we have our `Property` reducer, which takes the *current state* and an *action*, and returns the *new state*.
 - On `FETCH_ENTITIES`, we increment `showing` and update our `args` and `searchParameters` (which are passed in by our Saga as you will see).
@@ -489,6 +489,21 @@ export default function fetchEntityDetailsSaga(entityName, apiAction) {
 
 This one is basically the same as `fetchEntitiesSaga` but without the `batchIndex` logic.
 
+Let's add one more: the `InvalidRouteSaga`
+
+`Sagas/RouteSagas/InvalidRouteSaga.js`:
+
+```js
+import { call } from 'redux-saga/effects'
+import { displayError } from '../../Actions'
+
+export default function* invalidRouteSaga(location) {
+  yield call(displayError('This page does not exist.'))
+}
+```
+
+It's basically a placeholder at the moment, but it's useful.
+
 Whew... that's about enough Saga fun for now!
 
 #### And... Action!
@@ -538,6 +553,11 @@ export const fetchEntityDetailsError = (entityName, error) => ({
   type: 'FETCH_ENTITY_DETAILS_ERROR',
   entityName,
   error
+})
+
+export const displayError = msg => ({
+  type: 'DISPLAY_ERROR',
+  msg
 })
 ```
 
