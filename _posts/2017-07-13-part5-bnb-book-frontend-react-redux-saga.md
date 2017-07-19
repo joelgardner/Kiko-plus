@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "A modern JS app (V): Building our frontend with React, Redux, and Redux-Saga"
+title: "A modern JS app (V): Building our frontend with React, Redux Sagas, and Apollo"
 description: "Part 5: In this post, we'll take a deep dive into the React/Redux ecosystem with libraries such as Redux Saga and Redux Little Router to build our booking site's frontend.  We'll use Apollo to facilitate our API's GraphQL requests, and we'll  check use Immutable data-structures as our app state."
 date: 2017-07-13
 tags: [javascript, react, react-redux, redux, redux-saga, redux-little-router, immutable, apollo]
@@ -558,10 +558,12 @@ We've finally arrived to the fun part of an application: the views!  As mentione
 ```
 - App/
   - PropertyList/
-    - PropertyListcontainer.js
+    - PropertyListContainer.js
     - PropertyList.js
     - PropertyList.css
 ```
+
+`PropertyListContainer.js` is the Redux container for our view, `PropertyList.js` is the React view, and of course `PropertyList.css` is for styling.
 
 #### GraphQL schema changes
 The above API calls bring up a question of search and pagination.  It'd obviously be nice to be able to search by keyword or (especially) dates and location.  
