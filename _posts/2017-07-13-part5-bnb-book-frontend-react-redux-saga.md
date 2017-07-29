@@ -240,10 +240,10 @@ Then we have our `Property` reducer, which takes the *current state* and an *act
 - On `SHOW_MORE`, increment our `showing` variable, and then we check that our `buffer` contains the next batch of properties to show (which would've been fetched the *last* time the user has scrolled to the bottom of the list).  If it exists, we remove the property objects from the `buffer`, and append them to `properties`.
 - On `FETCH_ENTITIES`, we update our `args` and `searchParameters` (which are passed in by our Saga as you will see).
 - On `FETCH_ENTITIES_SUCCESS`, based on the value of `showing`, we either:
-  - add an "out of order" request's results to the `buffer`, with a key of the request's `batchIndex`
-  - append an "in order" request's results to the `properties` list
+  - stash an "out-of-order" request's results in the `buffer`, keyed by the request's `batchIndex`
+  - append an "in-order" request's results to the `properties` list
 
-  An "out of order" request can happen if we have two requests going at once (i.e., the first two requests on page-load), and  request A takes longer than request B.  If/when this happens, we still need to maintain the correct order, which we accomplish by putting "out of order" requests into a `buffer`.  This logic combined with Immutable allows us to update `properties` *only when we really need to*, which means our list will never execute an expensive re-render unnecessarily.
+  An out-of-order request can happen if we have two requests going at once (i.e., the first two requests on page-load), and  request A completes *after* request B.  If/when this happens, we still need to maintain the correct order, which we accomplish by putting an out-of-order request' results into the `buffer`.  This logic combined with Immutable allows us to update `properties` *only when we really need to*, which means our list will never execute an expensive re-render unnecessarily.
 - On `FETCH_ENTITY_DETAILS_SUCCESS`, we simply set `selectedItem` to the result from our API call.
 
 #### Clientside API
