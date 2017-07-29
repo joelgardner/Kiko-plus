@@ -243,7 +243,7 @@ Then we have our `Property` reducer, which takes the *current state* and an *act
   - stash a pre-fetched (e.g., the 2nd request for properties on page-load) request's results in the `buffer`, keyed by the request's `batchIndex`
   - append a non-pre-fetched (e.g., the 1st request for properties on page-load) request's results to the `properties` list
 
-  We choose which action to take by comparing `showing` with the request's `batchIndex`.  If a request's results should be shown immediately, we append to `properties`.  This logic combined with Immutable allows us to update `properties` *only when we really need to*, which means our list will never execute an expensive re-render unnecessarily.
+  We choose which action to take by comparing `showing` with the request's `batchIndex`.  If a request's results should be shown immediately, we append to `properties`, otherwise we stash in `buffer`.  This logic combined with Immutable allows us to update `properties` *only when we really need to*, which means our list will never execute an expensive re-render unnecessarily.
 - On `FETCH_ENTITY_DETAILS_SUCCESS`, we simply set `selectedItem` to the result from our API call.
 
 #### Clientside API
