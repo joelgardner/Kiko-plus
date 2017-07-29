@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "A modern JS app (V): Building our frontend with React, Redux Sagas, and Apollo"
+title: "A modern JS app (V): building our frontend with React, Redux, Saga, and Apollo"
 description: "Part 5: In this post, we'll take a deep dive into the React/Redux ecosystem with libraries such as redux-saga and redux-little-router to build our booking site's frontend.  We'll use Apollo to facilitate our API's GraphQL requests, and we'll  build our app state with Immutable data-structures."
 date: 2017-07-13
 tags: [javascript, react, react-redux, redux, redux-saga, redux-little-router, immutable, apollo]
