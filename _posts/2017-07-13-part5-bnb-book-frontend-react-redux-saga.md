@@ -180,7 +180,8 @@ import { FETCH_LIMIT } from '../Constants'
 const initialPropertyState = fromJS({
   selectedItem: {},
   showing: -1,
-  batches: [],
+  buffer: {},
+  properties: [],
   args: {},
   searchParameters: {
     sortKey: 'id',
@@ -193,14 +194,29 @@ const initialPropertyState = fromJS({
 
 function Property(state = initialPropertyState, action) {
   switch(action.type) {
+    case 'SHOW_MORE':
+      return state.withMutations(st => {
+        const showing = st.get('showing')
+        const bufferedProperties = st.getIn(['buffer', showing])
+        st.update('showing', s => s + 1)
+        if (bufferedProperties) {
+          st.update('properties', properties => properties.concat(bufferedProperties))
+          st.deleteIn(['buffer', showing])
+        }
+      })
     case 'FETCH_ENTITIES':
       return state.withMutations(st => {
-        st.update('showing', showing => showing + 1)
-          .update('searchParameters', searchParameters => searchParameters.merge(action.searchParameters))
+        st.update('searchParameters', searchParameters => searchParameters.merge(action.searchParameters))
           .update('args', args => args.merge(action.args))
       })
     case 'FETCH_ENTITIES_SUCCESS':
-      return state.update('batches', batches => batches.set(action.batchIndex, List(action.entities)))
+      // if the request's batchIndex (i.e., the value of showing at time of request)
+      // is more than the current value for showing, then it goes into the buffer,
+      // which is a temporary hold for property batches that shouldn't yet be shown
+      // otherwise, we simply append the results to the current properties
+      return state.get('showing') <= action.batchIndex ?
+        state.update('buffer', buffer => buffer.set(action.batchIndex, List(action.entities))) :
+        state.update('properties', properties => properties.concat(action.entities))
     case 'FETCH_ENTITY_DETAILS_SUCCESS':
       return state.set('selectedItem', Map(action.entity))
     default:
@@ -221,8 +237,12 @@ This file defines an `initialState` object that is an `immutable` data-structure
 - `searchParameters` is a map that will determine things like sort order, search string, number of items to fetch, and how many to skip (i.e., an offset).  This is important for our infinite scrolling (or any pagination control).
 
 Then we have our `Property` reducer, which takes the *current state* and an *action*, and returns the *new state*.
-- On `FETCH_ENTITIES`, we increment `showing` and update our `args` and `searchParameters` (which are passed in by our Saga as you will see).
-- On `FETCH_ENTITIES_SUCCESS`, we set the `batch` by the `batchIndex`. `batchIndex` is required because it is possible we have two requests going at once, and if request A takes longer than request B, we want to maintain the correct order, so we must make sure the batches from request B are slotted into the right index in our `batches` array (rather than simply `push()`ing onto the end).
+- On `SHOW_MORE`, increment our `showing` variable, and then we check that our `buffer` contains the next batch of properties to show (which would've been fetched the *last* time the user has scrolled to the bottom of the list).  If it exists, we remove the property objects from the `buffer`, and append them to `properties`.
+- On `FETCH_ENTITIES`, we update our `args` and `searchParameters` (which are passed in by our Saga as you will see).
+- On `FETCH_ENTITIES_SUCCESS`, based on the value of `showing`, we either:
+  - add an "out of order" request's results to the `buffer`, with a key of the request's `batchIndex`
+  - append an "in order" request's results to the `properties` list
+  An "out of order" request can happen if we have two requests going at once (i.e., the first two requests on page-load), and  request A takes longer than request B.  If/when this happens, we still need to maintain the correct order, which we accomplish by putting "out of order" requests into a `buffer`.  This logic combined with Immutable allows us to update `properties` *only when we really need to*, which means our list will never execute an expensive re-render unnecessarily.
 - On `FETCH_ENTITY_DETAILS_SUCCESS`, we simply set `selectedItem` to the result from our API call.
 
 #### Clientside API
@@ -348,7 +368,7 @@ export default function* rootSaga() {
 }
 ```
 
-It's very simple.  We are simply listening for the latest `ROUTER_LOCATION_CHANGED` action (which is triggered by our router), and when we see it, we execute the `navigationSaga`, which is defined in `NavigationSaga.js`:
+It's very simple.  We are listening for the latest `ROUTER_LOCATION_CHANGED` action (which is triggered by our router), and when we see it, we execute the `navigationSaga`, which is defined in `NavigationSaga.js`:
 
 ```js
 import { call } from 'redux-saga/effects'
@@ -361,7 +381,7 @@ export default function* navigationSaga(action) {
 }
 ```
 
-This Navigation Saga takes the payload from the `ROUTER_LOCATION_CHANGED` message, and executes another saga.  Where does this magic "other" saga come from?  Back in `Routes.js`, we defined a `saga` property for our first two routes.  That's the saga being executed here.  Those two sagas were `homeSaga.js` and `propertyDetailsSaga`, which we will define in `Sagas/RouteSagas`:
+This Navigation Saga takes the payload from the `ROUTER_LOCATION_CHANGED` message, and executes another saga.  Where does this magic "other" saga come from?  Back in `Routes.js`, we defined a `saga` property for our first two routes.  That's the saga being executed here.  Those two sagas were `homeSaga` and `propertyDetailsSaga`, which we will define in `Sagas/RouteSagas`:
 
 `Sagas/RouteSagas/HomeSaga.js`:
 
@@ -385,13 +405,13 @@ export default function* homeSaga(location) {
 }
 ```
 
-This one gets a little more complex.  Remember that we're using an infinitely scrollable list of Properties on this route.  When we scroll to the bottom, we must do both of the following:
+This one gets a little more complex.  Remember that we're displaying an infinitely scrollable list of Properties on this route.  When we scroll to the bottom, we must do both of the following:
 - Display the next batch of properties immediately
-- Prefetch the next batch of properties
+- Prefetch the next-next batch of properties
 
-To fulfill these requirements, we must fetch two batches on page-load: the first of which will be displayed immediately, and the second will be displayed when the user scrolls to the bottom.  This is why we defined `showing` to be `-1` in our initial state:  each time we trigger a `FETCH_ENTITIES` action, `showing` is incremented by our reducer, but we only want to show the first batch of the initial two requests.  So if we started it at `0`, *both* initial batches would be displayed.  This "stutter-step" allows us to provide an illusion of very fast loading for the user.
+To fulfill these requirements, we must fetch two batches on page-load: the first of which will be displayed immediately, and the second will be displayed when the user scrolls to the bottom.  This is why we defined `showing` to be `-1` in our initial state:  each time we trigger a `FETCH_ENTITIES` action, `showing` is incremented (see `FetchEntitiesSaga.js` below), but we actually only want to show the *first* batch of the initial two requests.  So if we started it at `0`, *both* initial batches would be displayed.  This "stutter-step" allows us to provide an illusion of very fast loading for the user.
 
-So back to this saga, it is doing in code what we just described: if this is the initial page-load (i.e., `showing` is `-1`), it triggers two `fetchEntities` actions.  It also listens for *every* instance of `FETCH_ENTITIES`, and executes yet another saga: the `fetchEntitiesSaga`.
+So back to this saga, it is doing in code what we just described: if this is the initial page-load (i.e., `showing` is `-1`), it triggers two `fetchEntities` actions.  It also listens for every dispatch of `FETCH_ENTITIES`, and executes yet another saga: the `fetchEntitiesSaga`.
 
 Create `Sagas/FetchEntitiesSaga.js`:
 
@@ -401,12 +421,14 @@ import * as api from '../Api/ApolloProxy'
 import { FETCH_LIMIT } from '../Constants'
 import {
   fetchEntitiesSuccess,
-  fetchEntitiesError
+  fetchEntitiesError,
+  showMore
 } from '../Actions'
 import R from 'ramda'
 
 export default function fetchEntitiesSaga(entityName, apiAction) {
   return function* (action) {
+    yield put(showMore())
     const batchIndex = yield select(st => st.app[entityName].get('showing'))
     try {
       const result = yield call(
@@ -433,7 +455,7 @@ export default function fetchEntitiesSaga(entityName, apiAction) {
 
 This Saga takes care of the logic for (you guessed it) fetching entities.  The actual generator function is wrapped in a normal function that provides the entity name and corresponding API action to call (in this case, `Property` and `listProperties`, respectively).
 
-The logic is pretty simple.  It reads `showing` from current app state, and assigns its value to `batchIndex` for the subsequent request.  It then tries calling the API method with the appropriate parameters, but with a modification to `searchParameters`: it defines `skip` so that the server returns the correct batch of entities.
+The logic is pretty simple.  First, it dispatches a `showMore` action, which increments our app state's `showing` property.  Then, it reads (incremented) `showing` from current app state, and assigns its value to `batchIndex` for the subsequent request.  It then tries calling the API method with the appropriate parameters, but with a modification to `searchParameters`: it defines `skip` so that the server returns the correct batch of entities.
 
 If the call was successful, we trigger a `FETCH_ENTITIES_SUCCESS` action that contains the resulting list and the `batchIndex` (from above, we know that the reducer will set the entities to app state at this `batchIndex`).
 
@@ -585,5 +607,6 @@ We've finally arrived to the fun part of an application: the views!  As mentione
 
 `PropertyListContainer.js` is the Redux container for our view, `PropertyList.js` is the React view, and of course `PropertyList.css` is for styling.
 
-#### GraphQL schema changes
-The above API calls bring up a question of search and pagination.  It'd obviously be nice to be able to search by keyword or (especially) dates and location.  
+> Speaking of styling, We could of course use something like Sass or Less for preprocessed CSS, but we'll follow the thinking outlined [here](https://github.com/facebookincubator/create-react-app/blob/master/packages/react-scripts/template/README.md#adding-a-css-preprocessor-sass-less-etc).  I quite like the idea of keeping CSS files coupled with the components they will be styling, but it's certainly a matter of preference.
+
+We'll take a deep dive into the views of our application in our next post.  Keep on reading!
