@@ -242,6 +242,7 @@ Then we have our `Property` reducer, which takes the *current state* and an *act
 - On `FETCH_ENTITIES_SUCCESS`, based on the value of `showing`, we either:
   - add an "out of order" request's results to the `buffer`, with a key of the request's `batchIndex`
   - append an "in order" request's results to the `properties` list
+
   An "out of order" request can happen if we have two requests going at once (i.e., the first two requests on page-load), and  request A takes longer than request B.  If/when this happens, we still need to maintain the correct order, which we accomplish by putting "out of order" requests into a `buffer`.  This logic combined with Immutable allows us to update `properties` *only when we really need to*, which means our list will never execute an expensive re-render unnecessarily.
 - On `FETCH_ENTITY_DETAILS_SUCCESS`, we simply set `selectedItem` to the result from our API call.
 
